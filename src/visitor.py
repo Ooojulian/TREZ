@@ -30,6 +30,10 @@ class TrezVisitor(AntlrTrezVisitor):
 
     def visitVarExpr(self, ctx: TrezParser.VarExprContext):
         var_name = ctx.ID().getText()
+        # Verificar constantes matemáticas reservadas (ej. PI, E)
+        if hasattr(math_utilsdoz, 'constants') and var_name in math_utilsdoz.constants:
+            return math_utilsdoz.constants[var_name]
+            
         if var_name in self.memory:
             return self.memory[var_name]
         raise TrezRuntimeError(f"Undefined variable: '{var_name}'")
@@ -55,8 +59,27 @@ class TrezVisitor(AntlrTrezVisitor):
             return math_utilsdoz.mse(args[0], args[1])
         elif func_name == 'mse_grad':
             return math_utilsdoz.mse_grad(args[0], args[1])
+        # Native Core Math API
+        elif func_name == 'abs':
+            return math_utilsdoz.abs_doz(args[0])
+        elif func_name == 'sqrt':
+            return math_utilsdoz.sqrt_doz(args[0])
+        elif func_name == 'pow':
+            return math_utilsdoz.pow_doz(args[0], args[1])
+        elif func_name == 'exp':
+            return math_utilsdoz.exp_doz(args[0])
+        elif func_name == 'log':
+            return math_utilsdoz.log_doz(args[0])
+        elif func_name == 'sin':
+            return math_utilsdoz.sin_doz(args[0])
+        elif func_name == 'cos':
+            return math_utilsdoz.cos_doz(args[0])
+        elif func_name == 'tan':
+            return math_utilsdoz.tan_doz(args[0])
+        elif func_name == 'factorial':
+            return math_utilsdoz.factorial_doz(args[0])
         else:
-            raise TrezRuntimeError(f"Unknown deep learning function: '{func_name}'")
+            raise TrezRuntimeError(f"Unknown system function: '{func_name}'")
 
     def visitArrayExpr(self, ctx: TrezParser.ArrayExprContext):
         # Visit the array rule context

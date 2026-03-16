@@ -1,0 +1,29 @@
+// Prueba Estándar de la Librería Matemática Nativa
+// Variables predefinidas
+let calc_pi = PI;
+let calc_e  = E;
+
+calc_pi;
+calc_e;
+
+// Algebraicas
+let absoluto = abs(-45.5);
+let raiz = sqrt(16); // Newton-Rapshon
+let potencia = pow(2, 8);
+let fact = factorial(5);
+
+absoluto;
+raiz;
+potencia;
+fact;
+
+// Trascendentales (Series de Taylor/Maclaurin)
+let exp_5 = exp(5.0);
+let log_e = log(E); // Maclaurin ln(e) = 1
+let seno_pi = sin(PI); // Aproxima a 0
+let coseno_pi = cos(PI); // Aproxima a -1
+
+exp_5;
+log_e;
+seno_pi;
+coseno_pi;
