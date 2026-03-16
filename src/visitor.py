@@ -6,6 +6,7 @@ from parser.TrezParser import TrezParser
 from parser.TrezVisitor import TrezVisitor as AntlrTrezVisitor
 import math_utilsdoz
 from errors import TrezRuntimeError
+from lib.iodoz.iodoz import read_file_doz, write_file_doz
 
 class TrezVisitor(AntlrTrezVisitor):
     def __init__(self):
@@ -40,11 +41,8 @@ class TrezVisitor(AntlrTrezVisitor):
 
     def visitFuncCallExpr(self, ctx: TrezParser.FuncCallExprContext):
         func_name = ctx.ID().getText()
-        args = []
-        if ctx.arg_list():
-            # In arg_list, every child that is not a comma is an expr
-            for expr_ctx in ctx.arg_list().expr():
-                args.append(self.visit(expr_ctx))
+        # With the updated grammar, ctx.expr() returns all argument expressions directly
+        args = [self.visit(expr_ctx) for expr_ctx in ctx.expr()]
         
         # dispatch to math_utils
         if func_name == 'relu':
@@ -78,6 +76,11 @@ class TrezVisitor(AntlrTrezVisitor):
             return math_utilsdoz.tan_doz(args[0])
         elif func_name == 'factorial':
             return math_utilsdoz.factorial_doz(args[0])
+        # Native File I/O API
+        elif func_name == 'leer':
+            return read_file_doz(args[0])
+        elif func_name == 'escribir':
+            return write_file_doz(args[0], args[1])
         else:
             raise TrezRuntimeError(f"Unknown system function: '{func_name}'")
 
@@ -125,8 +128,18 @@ class TrezVisitor(AntlrTrezVisitor):
         else:
             return left - right
 
-    def visitNumberExpr(self, ctx: TrezParser.NumberExprContext):
-        return float(ctx.NUMBER().getText())
+    def visitNumExpr(self, ctx: TrezParser.NumExprContext):
+        val = ctx.getText()
+        return float(val) if '.' in val else int(val)
 
-    def visitParensExpr(self, ctx: TrezParser.ParensExprContext):
+    def visitStringExpr(self, ctx: TrezParser.StringExprContext):
+        # Remove surrounding quotes and process escape sequences
+        raw = ctx.getText()[1:-1]
+        raw = raw.replace('\\n', '\n')
+        raw = raw.replace('\\t', '\t')
+        raw = raw.replace('\\"', '"')
+        raw = raw.replace('\\\\', '\\')
+        return raw
+        
+    def visitParenExpr(self, ctx: TrezParser.ParenExprContext):
         return self.visit(ctx.expr())

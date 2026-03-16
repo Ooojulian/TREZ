@@ -29,6 +29,11 @@ class TrezVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by TrezParser#StringExpr.
+    def visitStringExpr(self, ctx:TrezParser.StringExprContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by TrezParser#ArrayExpr.
     def visitArrayExpr(self, ctx:TrezParser.ArrayExprContext):
         return self.visitChildren(ctx)
@@ -39,18 +44,18 @@ class TrezVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by TrezParser#NumberExpr.
-    def visitNumberExpr(self, ctx:TrezParser.NumberExprContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by TrezParser#ParensExpr.
-    def visitParensExpr(self, ctx:TrezParser.ParensExprContext):
+    # Visit a parse tree produced by TrezParser#NumExpr.
+    def visitNumExpr(self, ctx:TrezParser.NumExprContext):
         return self.visitChildren(ctx)
 
 
     # Visit a parse tree produced by TrezParser#VarExpr.
     def visitVarExpr(self, ctx:TrezParser.VarExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TrezParser#ParenExpr.
+    def visitParenExpr(self, ctx:TrezParser.ParenExprContext):
         return self.visitChildren(ctx)
 
 
