@@ -1,0 +1,19 @@
+let a = [1, 2, 3];
+let b = [4, 5, 6];
+
+let x = [[1, 2], [3, 4]];
+let y = [[2, 0], [1, 2]];
+
+let producto_punto = dot(a, b);
+let matriz_mult = dot(x, y);
+
+let sigmoid_val = sigmoid(0.5);
+let relu_array = relu([-1, 0, 5, -3, 2]);
+
+let t_matrix = transpose(x);
+
+producto_punto;
+matriz_mult;
+sigmoid_val;
+relu_array;
+t_matrix;
