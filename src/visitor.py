@@ -2,8 +2,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(__file__))
 
-from TrezParser import TrezParser
-from TrezVisitor import TrezVisitor as AntlrTrezVisitor
+from parser.TrezParser import TrezParser
+from parser.TrezVisitor import TrezVisitor as AntlrTrezVisitor
 import math_utilsdoz
 from errors import TrezRuntimeError
 

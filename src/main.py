@@ -3,8 +3,8 @@ import os
 sys.path.append(os.path.dirname(__file__))
 
 from antlr4 import *
-from TrezLexer import TrezLexer
-from TrezParser import TrezParser
+from parser.TrezLexer import TrezLexer
+from parser.TrezParser import TrezParser
 from visitor import TrezVisitor
 from error_listener import TrezErrorListener
 from errors import TrezRuntimeError
