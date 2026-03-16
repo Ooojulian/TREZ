@@ -51,6 +51,10 @@ class TrezVisitor(AntlrTrezVisitor):
             return math_utilsdoz.dot(args[0], args[1])
         elif func_name == 'transpose':
             return math_utilsdoz.transpose(args[0])
+        elif func_name == 'mse':
+            return math_utilsdoz.mse(args[0], args[1])
+        elif func_name == 'mse_grad':
+            return math_utilsdoz.mse_grad(args[0], args[1])
         else:
             raise TrezRuntimeError(f"Unknown deep learning function: '{func_name}'")
 
@@ -68,7 +72,13 @@ class TrezVisitor(AntlrTrezVisitor):
         left = self.visit(ctx.expr(0))
         right = self.visit(ctx.expr(1))
         op = ctx.getChild(1).getText()
+        
+        # Scalar multiplication over arrays (for Learning Rate `lr * array`)
         if op == '*':
+            if isinstance(left, (int, float)) and isinstance(right, list):
+                return [left * r for r in right]
+            elif isinstance(left, list) and isinstance(right, (int, float)):
+                return [l * right for l in left]
             return left * right
         else:
             return left / right
@@ -77,6 +87,16 @@ class TrezVisitor(AntlrTrezVisitor):
         left = self.visit(ctx.expr(0))
         right = self.visit(ctx.expr(1))
         op = ctx.getChild(1).getText()
+        
+        # Support array component-wise addition/subtraction
+        if isinstance(left, list) and isinstance(right, list):
+            if len(left) != len(right):
+                raise TrezRuntimeError("Cannot add/subtract arrays of different lengths")
+            if op == '+':
+                return [l + r for l, r in zip(left, right)]
+            else:
+                return [l - r for l, r in zip(left, right)]
+
         if op == '+':
             return left + right
         else:
