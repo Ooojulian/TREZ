@@ -5,6 +5,7 @@ sys.path.append(os.path.dirname(__file__))
 from TrezParser import TrezParser
 from TrezVisitor import TrezVisitor as AntlrTrezVisitor
 import math_utilsdoz
+from errors import TrezRuntimeError
 
 class TrezVisitor(AntlrTrezVisitor):
     def __init__(self):
@@ -31,7 +32,7 @@ class TrezVisitor(AntlrTrezVisitor):
         var_name = ctx.ID().getText()
         if var_name in self.memory:
             return self.memory[var_name]
-        raise Exception(f"Undefined variable: {var_name}")
+        raise TrezRuntimeError(f"Undefined variable: '{var_name}'")
 
     def visitFuncCallExpr(self, ctx: TrezParser.FuncCallExprContext):
         func_name = ctx.ID().getText()
@@ -51,7 +52,7 @@ class TrezVisitor(AntlrTrezVisitor):
         elif func_name == 'transpose':
             return math_utilsdoz.transpose(args[0])
         else:
-            raise Exception(f"Unknown function: {func_name}")
+            raise TrezRuntimeError(f"Unknown deep learning function: '{func_name}'")
 
     def visitArrayExpr(self, ctx: TrezParser.ArrayExprContext):
         # Visit the array rule context
