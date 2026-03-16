@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(__file__))
 
 from TrezParser import TrezParser
 from TrezVisitor import TrezVisitor as AntlrTrezVisitor
-import math_utils
+import math_utilsdoz
 
 class TrezVisitor(AntlrTrezVisitor):
     def __init__(self):
@@ -43,13 +43,13 @@ class TrezVisitor(AntlrTrezVisitor):
         
         # dispatch to math_utils
         if func_name == 'relu':
-            return math_utils.relu(args[0])
+            return math_utilsdoz.relu(args[0])
         elif func_name == 'sigmoid':
-            return math_utils.sigmoid(args[0])
+            return math_utilsdoz.sigmoid(args[0])
         elif func_name == 'dot':
-            return math_utils.dot(args[0], args[1])
+            return math_utilsdoz.dot(args[0], args[1])
         elif func_name == 'transpose':
-            return math_utils.transpose(args[0])
+            return math_utilsdoz.transpose(args[0])
         else:
             raise Exception(f"Unknown function: {func_name}")
 
