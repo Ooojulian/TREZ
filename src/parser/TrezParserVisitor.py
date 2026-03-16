@@ -1,4 +1,4 @@
-# Generated from Trez.g4 by ANTLR 4.9.2
+# Generated from TrezParser.g4 by ANTLR 4.9.2
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .TrezParser import TrezParser
@@ -7,7 +7,7 @@ else:
 
 # This class defines a complete generic visitor for a parse tree produced by TrezParser.
 
-class TrezVisitor(ParseTreeVisitor):
+class TrezParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by TrezParser#program.
     def visitProgram(self, ctx:TrezParser.ProgramContext):
@@ -71,11 +71,6 @@ class TrezVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by TrezParser#array.
     def visitArray(self, ctx:TrezParser.ArrayContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by TrezParser#arg_list.
-    def visitArg_list(self, ctx:TrezParser.Arg_listContext):
         return self.visitChildren(ctx)
 
 

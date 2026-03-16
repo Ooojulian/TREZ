@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.dirname(__file__))
 
 from parser.TrezParser import TrezParser
-from parser.TrezVisitor import TrezVisitor as AntlrTrezVisitor
+from parser.TrezParserVisitor import TrezParserVisitor as AntlrTrezVisitor
 import math_utilsdoz
 from errors import TrezRuntimeError
 from lib.iodoz.iodoz import read_file_doz, write_file_doz
