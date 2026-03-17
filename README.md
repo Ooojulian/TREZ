@@ -1,5 +1,8 @@
 # 🧠 TREZ Language
 
+
+https://www.figma.com/make/RriKruOSSlTA1CcIjeTxWu/Mockups-para-sistema-de-sensores?fullscreen=1
+
 **TREZ** es un lenguaje de programación de dominio específico (DSL) enfocado en Deep Learning, desarrollado completamente desde cero sin el uso de librerías externas para los cálculos matemáticos o de tensores (cero dependencias a NumPy, PyTorch, etc.). 
 
 El lenguaje está diseñado bajo un **paradigma funcional** y utiliza el **patrón de diseño Visitor** para la evaluación de su Árbol Sintáctico Abstracto (AST).
