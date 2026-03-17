@@ -2,10 +2,29 @@ lexer grammar TrezLexer;
 
 // Keywords
 LET: 'let';
+IF: 'if';
+ELSE: 'else';
+WHILE: 'while';
+TRUE: 'true';
+FALSE: 'false';
 
 // Symbols
+// Symbols (longer tokens first)
+POW: '**';
+AND: '&&';
+OR: '||';
+EQEQ: '==';
+NEQ: '!=';
+LE: '<=';
+GE: '>=';
+LT: '<';
+GT: '>';
+MOD: '%';
+
 LPAREN: '(';
 RPAREN: ')';
+LBRACE: '{';
+RBRACE: '}';
 LBRACK: '[';
 RBRACK: ']';
 COMMA: ',';

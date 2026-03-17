@@ -1,6 +1,6 @@
-# Generated from TrezParser.g4 by ANTLR 4.9.2
+# Generated from TrezParser.g4 by ANTLR 4.13.2
 from antlr4 import *
-if __name__ is not None and "." in __name__:
+if "." in __name__:
     from .TrezParser import TrezParser
 else:
     from TrezParser import TrezParser
@@ -29,8 +29,43 @@ class TrezParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by TrezParser#if_stmt.
+    def visitIf_stmt(self, ctx:TrezParser.If_stmtContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TrezParser#while_stmt.
+    def visitWhile_stmt(self, ctx:TrezParser.While_stmtContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TrezParser#block.
+    def visitBlock(self, ctx:TrezParser.BlockContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TrezParser#AndExpr.
+    def visitAndExpr(self, ctx:TrezParser.AndExprContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by TrezParser#StringExpr.
     def visitStringExpr(self, ctx:TrezParser.StringExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TrezParser#BoolExpr.
+    def visitBoolExpr(self, ctx:TrezParser.BoolExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TrezParser#PowExpr.
+    def visitPowExpr(self, ctx:TrezParser.PowExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TrezParser#OrExpr.
+    def visitOrExpr(self, ctx:TrezParser.OrExprContext):
         return self.visitChildren(ctx)
 
 
@@ -49,6 +84,16 @@ class TrezParserVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by TrezParser#CompareExpr.
+    def visitCompareExpr(self, ctx:TrezParser.CompareExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TrezParser#EqExpr.
+    def visitEqExpr(self, ctx:TrezParser.EqExprContext):
+        return self.visitChildren(ctx)
+
+
     # Visit a parse tree produced by TrezParser#VarExpr.
     def visitVarExpr(self, ctx:TrezParser.VarExprContext):
         return self.visitChildren(ctx)
@@ -61,6 +106,11 @@ class TrezParserVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by TrezParser#AddSubExpr.
     def visitAddSubExpr(self, ctx:TrezParser.AddSubExprContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by TrezParser#UnaryMinusExpr.
+    def visitUnaryMinusExpr(self, ctx:TrezParser.UnaryMinusExprContext):
         return self.visitChildren(ctx)
 
 

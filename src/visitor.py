@@ -81,8 +81,32 @@ class TrezVisitor(AntlrTrezVisitor):
             return read_file_doz(args[0])
         elif func_name == 'escribir':
             return write_file_doz(args[0], args[1])
+        elif func_name == 'mostrar' or func_name == 'print':
+            # mostrar(x) - print to stdout
+            print(args[0])
+            return None
         else:
             raise TrezRuntimeError(f"Unknown system function: '{func_name}'")
+
+    def visitBlock(self, ctx: TrezParser.BlockContext):
+        result = None
+        for stmt in ctx.statement():
+            result = self.visit(stmt)
+        return result
+
+    def visitIf_stmt(self, ctx: TrezParser.If_stmtContext):
+        cond = self.visit(ctx.expr())
+        if cond:
+            return self.visit(ctx.block(0))
+        elif ctx.block(1) is not None:
+            return self.visit(ctx.block(1))
+        return None
+
+    def visitWhile_stmt(self, ctx: TrezParser.While_stmtContext):
+        # Simple while loop; beware infinite loops
+        while self.visit(ctx.expr()):
+            self.visit(ctx.block())
+        return None
 
     def visitArrayExpr(self, ctx: TrezParser.ArrayExprContext):
         # Visit the array rule context
@@ -106,8 +130,65 @@ class TrezVisitor(AntlrTrezVisitor):
             elif isinstance(left, list) and isinstance(right, (int, float)):
                 return [l * right for l in left]
             return left * right
-        else:
+        elif op == '/':
             return left / right
+        else: # modulo
+            return left % right
+
+    def visitPowExpr(self, ctx: TrezParser.PowExprContext):
+        left = self.visit(ctx.expr(0))
+        right = self.visit(ctx.expr(1))
+        # prefer math_utilsdoz if available
+        if hasattr(math_utilsdoz, 'pow_doz'):
+            return math_utilsdoz.pow_doz(left, right)
+        return left ** right
+
+    def visitUnaryMinusExpr(self, ctx: TrezParser.UnaryMinusExprContext):
+        val = self.visit(ctx.expr())
+        if isinstance(val, list):
+            return [-v for v in val]
+        return -val
+
+    def visitBoolExpr(self, ctx: TrezParser.BoolExprContext):
+        txt = ctx.getText()
+        return True if txt == 'true' else False
+
+    def visitEqExpr(self, ctx: TrezParser.EqExprContext):
+        left = self.visit(ctx.expr(0))
+        right = self.visit(ctx.expr(1))
+        op = ctx.getChild(1).getText()
+        if op == '==':
+            return left == right
+        else:
+            return left != right
+
+    def visitCompareExpr(self, ctx: TrezParser.CompareExprContext):
+        left = self.visit(ctx.expr(0))
+        right = self.visit(ctx.expr(1))
+        op = ctx.getChild(1).getText()
+        if op == '<':
+            return left < right
+        elif op == '<=':
+            return left <= right
+        elif op == '>':
+            return left > right
+        else:
+            return left >= right
+
+    def visitAndExpr(self, ctx: TrezParser.AndExprContext):
+        left = self.visit(ctx.expr(0))
+        # short-circuit
+        if not bool(left):
+            return False
+        right = self.visit(ctx.expr(1))
+        return bool(right)
+
+    def visitOrExpr(self, ctx: TrezParser.OrExprContext):
+        left = self.visit(ctx.expr(0))
+        if bool(left):
+            return True
+        right = self.visit(ctx.expr(1))
+        return bool(right)
 
     def visitAddSubExpr(self, ctx: TrezParser.AddSubExprContext):
         left = self.visit(ctx.expr(0))
