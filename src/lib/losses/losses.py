@@ -17,7 +17,6 @@ def mse_grad(y_true, y_pred):
         if len(y_true) != len(y_pred):
             raise TrezRuntimeError("Loss mse_grad() mismatch: Las dimensiones de y_true e y_pred no coinciden.")
         n = len(y_true)
-        # La derivada del MSE es 2 * (y_pred - y_true) / N
         return [2 * (p - t) / n for t, p in zip(y_true, y_pred)]
     elif isinstance(y_true, (int, float)) and isinstance(y_pred, (int, float)):
         return 2 * (y_pred - y_true)

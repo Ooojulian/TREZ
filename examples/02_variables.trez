@@ -1,0 +1,14 @@
+// Ejemplo 2: Variables en TREZ
+// Demuestra definición y uso de variables
+
+let x = 10;
+let y = 5;
+
+x + y;
+x * y;
+x - y;
+
+// Usando constantes matemáticas
+let radius = 5;
+let area = PI * radius * radius;
+area;

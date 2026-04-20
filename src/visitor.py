@@ -4,9 +4,9 @@ sys.path.append(os.path.dirname(__file__))
 
 from parser.TrezParser import TrezParser
 from parser.TrezParserVisitor import TrezParserVisitor as AntlrTrezVisitor
-import math_utilsdoz
+import math_utils
 from errors import TrezRuntimeError
-from lib.iodoz.iodoz import read_file_doz, write_file_doz
+from lib.io import read_file, write_file
 
 class TrezVisitor(AntlrTrezVisitor):
     def __init__(self):
@@ -32,9 +32,9 @@ class TrezVisitor(AntlrTrezVisitor):
     def visitVarExpr(self, ctx: TrezParser.VarExprContext):
         var_name = ctx.ID().getText()
         # Verificar constantes matemáticas reservadas (ej. PI, E)
-        if hasattr(math_utilsdoz, 'constants') and var_name in math_utilsdoz.constants:
-            return math_utilsdoz.constants[var_name]
-            
+        if hasattr(math_utils, 'constants') and var_name in math_utils.constants:
+            return math_utils.constants[var_name]
+
         if var_name in self.memory:
             return self.memory[var_name]
         raise TrezRuntimeError(f"Undefined variable: '{var_name}'")
@@ -43,44 +43,44 @@ class TrezVisitor(AntlrTrezVisitor):
         func_name = ctx.ID().getText()
         # With the updated grammar, ctx.expr() returns all argument expressions directly
         args = [self.visit(expr_ctx) for expr_ctx in ctx.expr()]
-        
+
         # dispatch to math_utils
         if func_name == 'relu':
-            return math_utilsdoz.relu(args[0])
+            return math_utils.relu(args[0])
         elif func_name == 'sigmoid':
-            return math_utilsdoz.sigmoid(args[0])
+            return math_utils.sigmoid(args[0])
         elif func_name == 'dot':
-            return math_utilsdoz.dot(args[0], args[1])
+            return math_utils.dot(args[0], args[1])
         elif func_name == 'transpose':
-            return math_utilsdoz.transpose(args[0])
+            return math_utils.transpose(args[0])
         elif func_name == 'mse':
-            return math_utilsdoz.mse(args[0], args[1])
+            return math_utils.mse(args[0], args[1])
         elif func_name == 'mse_grad':
-            return math_utilsdoz.mse_grad(args[0], args[1])
+            return math_utils.mse_grad(args[0], args[1])
         # Native Core Math API
         elif func_name == 'abs':
-            return math_utilsdoz.abs_doz(args[0])
+            return math_utils.abs(args[0])
         elif func_name == 'sqrt':
-            return math_utilsdoz.sqrt_doz(args[0])
+            return math_utils.sqrt(args[0])
         elif func_name == 'pow':
-            return math_utilsdoz.pow_doz(args[0], args[1])
+            return math_utils.pow(args[0], args[1])
         elif func_name == 'exp':
-            return math_utilsdoz.exp_doz(args[0])
+            return math_utils.exp(args[0])
         elif func_name == 'log':
-            return math_utilsdoz.log_doz(args[0])
+            return math_utils.log(args[0])
         elif func_name == 'sin':
-            return math_utilsdoz.sin_doz(args[0])
+            return math_utils.sin(args[0])
         elif func_name == 'cos':
-            return math_utilsdoz.cos_doz(args[0])
+            return math_utils.cos(args[0])
         elif func_name == 'tan':
-            return math_utilsdoz.tan_doz(args[0])
+            return math_utils.tan(args[0])
         elif func_name == 'factorial':
-            return math_utilsdoz.factorial_doz(args[0])
+            return math_utils.factorial(args[0])
         # Native File I/O API
         elif func_name == 'leer':
-            return read_file_doz(args[0])
+            return read_file(args[0])
         elif func_name == 'escribir':
-            return write_file_doz(args[0], args[1])
+            return write_file(args[0], args[1])
         elif func_name == 'mostrar' or func_name == 'print':
             # mostrar(x) - print to stdout
             print(args[0])
@@ -138,9 +138,9 @@ class TrezVisitor(AntlrTrezVisitor):
     def visitPowExpr(self, ctx: TrezParser.PowExprContext):
         left = self.visit(ctx.expr(0))
         right = self.visit(ctx.expr(1))
-        # prefer math_utilsdoz if available
-        if hasattr(math_utilsdoz, 'pow_doz'):
-            return math_utilsdoz.pow_doz(left, right)
+        # prefer math_utils if available
+        if hasattr(math_utils, 'pow'):
+            return math_utils.pow(left, right)
         return left ** right
 
     def visitUnaryMinusExpr(self, ctx: TrezParser.UnaryMinusExprContext):

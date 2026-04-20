@@ -1,0 +1,30 @@
+// Ejemplo 6: Funciones Matemáticas Nativas (sin NumPy)
+// Todas implementadas desde cero usando series de Taylor/Maclaurin
+
+// Potencia
+pow(2, 3);    // 8
+pow(2, -2);   // 0.25
+
+// Raíz cuadrada (Newton-Raphson)
+sqrt(16);     // 4
+sqrt(2);      // ≈ 1.414
+
+// Exponencial: e^x
+exp(1);       // ≈ 2.718 (= E)
+exp(2);
+
+// Logaritmo natural: ln(x)
+log(E);       // 1
+log(10);      // ≈ 2.303
+
+// Trigonometría (en radianes)
+sin(0);       // 0
+cos(0);       // 1
+sin(PI / 2);  // 1
+
+// Valor absoluto
+abs(-5);      // 5
+abs([-1, -2, 3]);
+
+// Factorial
+factorial(5); // 120
