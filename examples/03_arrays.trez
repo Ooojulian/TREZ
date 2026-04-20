@@ -1,0 +1,19 @@
+// Ejemplo 3: Arrays y Operaciones de Tensor
+// Demuestra trabajar con vectores y matrices
+
+// Vector simple
+let v1 = [1, 2, 3];
+let v2 = [4, 5, 6];
+
+// Producto punto de vectores
+dot(v1, v2);
+
+// Multiplicación escalar (learning rate * array)
+let lr = 0.1;
+lr * v1;
+
+// Matriz 2x3
+let matrix = [[1, 2, 3], [4, 5, 6]];
+
+// Transpuesta
+transpose(matrix);

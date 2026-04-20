@@ -1,0 +1,17 @@
+// Ejemplo 5: Funciones de Pérdida (Loss)
+// Fundamental para entrenar redes neuronales
+
+// Valores verdaderos vs predichos
+let y_true = [0, 1, 0];
+let y_pred = [0.1, 0.9, 0.2];
+
+// Error Cuadrático Medio (MSE)
+mse(y_true, y_pred);
+
+// Gradiente del MSE (usado en retropropagación)
+mse_grad(y_true, y_pred);
+
+// Caso escalar
+let true_val = 5.0;
+let pred_val = 4.5;
+mse(true_val, pred_val);

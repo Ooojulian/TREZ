@@ -1,0 +1,17 @@
+// Ejemplo 1: Operaciones Matemáticas Básicas en TREZ
+// Demuestra operaciones aritméticas con manejo correcto de precedencia
+
+// Suma simple
+5 + 3;
+
+// Operaciones combinadas con precedencia
+10 + 2 * 3;
+
+// Usando paréntesis para forzar orden
+(10 + 2) * 3;
+
+// División
+15 / 3;
+
+// Operación compleja
+((5 + 3) * 2 - 4) / 2;

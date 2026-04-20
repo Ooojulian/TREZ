@@ -1,0 +1,12 @@
+// Ejemplo 4: Funciones de Activación
+// Demuestra ReLU y Sigmoid, funciones clave en Deep Learning
+
+// ReLU: max(0, x)
+relu(5);      // 5
+relu(-3);     // 0
+relu([1, -2, 3, -4]);
+
+// Sigmoid: 1 / (1 + e^-x)
+sigmoid(0);   // ≈ 0.5
+sigmoid(2);   // ≈ 0.88
+sigmoid([-1, 0, 1]);

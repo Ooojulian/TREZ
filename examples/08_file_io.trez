@@ -1,0 +1,17 @@
+// Ejemplo 8: Entrada/Salida de Archivos (I/O)
+// Lectura y escritura de archivos de texto
+
+// Escribir en archivo
+escribir("output.txt", "Hola, TREZ!");
+
+// Leer desde archivo
+let content = leer("output.txt");
+content;
+
+// Mostrar en pantalla
+mostrar("El contenido fue:");
+print(content);
+
+// Escritura numérica
+let result = 42;
+escribir("resultado.txt", result);
