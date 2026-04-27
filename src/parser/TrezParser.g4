@@ -2,44 +2,78 @@ parser grammar TrezParser;
 
 options { tokenVocab = TrezLexer; }
 
-// Parser Rules
 program: statement+ EOF;
 
-statement: let_stmt
-         | expr_stmt
-         | if_stmt
-         | while_stmt
-         | block
-         ;
+statement
+    : let_stmt
+    | bind_tuple
+    | func_def
+    | return_stmt
+    | expr_stmt
+    | if_stmt
+    | while_stmt
+    | for_stmt
+    | block
+    ;
 
-let_stmt: LET ID EQ expr SEMI;
+let_stmt:    LET ID EQ rhs SEMI;
+bind_tuple:  LET LBRACK ID (COMMA ID)* RBRACK EQ rhs SEMI;
+func_def:    FUNC ID LPAREN param_list? RPAREN block;
+return_stmt: RETURN rhs SEMI;
+expr_stmt:   rhs SEMI;
+if_stmt:     IF LPAREN rhs RPAREN block (ELSE (if_stmt | block))?;
+while_stmt:  WHILE LPAREN rhs RPAREN block;
+for_stmt:    FOR ID IN rhs block;
+block:       LBRACE statement* RBRACE;
 
-expr_stmt: expr SEMI;
+param_list: ID (COMMA ID)*;
 
-if_stmt: IF LPAREN expr RPAREN block (ELSE block)?;
+// rhs = lambda | expr — lambda captures everything to its right
+rhs
+    : BACKSLASH ID ARROW rhs   # LambdaDef
+    | expr                     # ExprRhs
+    ;
 
-while_stmt: WHILE LPAREN expr RPAREN block;
+// Binary expressions — lower alternatives = lower precedence in ANTLR4
+expr
+    : expr PIPE expr                       # PipeOp
+    | expr OR expr                         # OrExpr
+    | expr AND expr                        # AndExpr
+    | NOT expr                             # NotExpr
+    | expr (EQEQ | NEQ) expr              # EqExpr
+    | expr (LT | LE | GT | GE) expr       # CompareExpr
+    | expr (MUL | DIV | MOD) expr         # MulDivExpr
+    | expr (PLUS | MINUS) expr            # AddSubExpr
+    | expr POW expr                        # PowExpr
+    | MINUS expr                           # UnaryMinusExpr
+    | postfix                              # PostfixExpr
+    ;
 
-block: LBRACE statement* RBRACE;
+// Postfix — index and method/namespace calls, highest precedence
+postfix
+    : postfix LBRACK expr RBRACK                            # IndexExpr
+    | postfix DOT ID LPAREN (rhs (COMMA rhs)*)? RPAREN     # MethodCallExpr
+    | atom                                                   # AtomExpr
+    ;
 
-expr: expr OR expr                      # OrExpr
-    | expr AND expr                     # AndExpr
-    | expr (EQEQ | NEQ) expr            # EqExpr
-    | expr (LT | LE | GT | GE) expr     # CompareExpr
-    | expr (PLUS | MINUS) expr          # AddSubExpr
-    | expr (MUL | DIV | MOD) expr       # MulDivExpr
-    | expr POW expr                     # PowExpr
-    | MINUS expr                        # UnaryMinusExpr
-    | NUMBER                            # NumExpr
-    | STRING                            # StringExpr
-    | TRUE                              # BoolExpr
-    | FALSE                             # BoolExpr
-    | ID LPAREN (expr (COMMA expr)*)? RPAREN  # FuncCallExpr
-    | ID                                # VarExpr
-    | LPAREN expr RPAREN                # ParenExpr
-    | array                             # ArrayExpr
+atom
+    : NUMBER                                                # NumExpr
+    | STRING                                                # StringExpr
+    | TRUE                                                  # BoolExpr
+    | FALSE                                                 # BoolExpr
+    | ID LPAREN (rhs (COMMA rhs)*)? RPAREN                 # FuncCallExpr
+    | ID                                                    # VarExpr
+    | LPAREN rhs RPAREN                                     # ParenExpr
+    | array                                                 # ArrayExpr
+    | dict                                                  # DictExpr
     ;
 
 array: LBRACK RBRACK
-     | LBRACK expr (COMMA expr)* RBRACK
+     | LBRACK rhs (COMMA rhs)* RBRACK
      ;
+
+dict: LBRACE RBRACE
+    | LBRACE dict_entry (COMMA dict_entry)* RBRACE
+    ;
+
+dict_entry: (STRING | ID) COLON rhs;

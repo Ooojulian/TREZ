@@ -1,31 +1,159 @@
-# 🧠 TREZ Language
+# TREZ Language
 
+**TREZ** es un Lenguaje de Dominio Específico (DSL) funcional diseñado para la definición, entrenamiento y evaluación de modelos de Deep Learning, construido completamente desde cero — cero dependencias a NumPy, PyTorch o cualquier librería de álgebra lineal externa.
 
-https://www.figma.com/make/RriKruOSSlTA1CcIjeTxWu/Mockups-para-sistema-de-sensores?fullscreen=1
+El lenguaje adopta un **paradigma estrictamente funcional** donde las transformaciones de datos se expresan mediante composición de funciones y el operador pipe `|>`. El sistema de compilación usa **ANTLR4** para análisis léxico/sintáctico y un intérprete **Python** que implementa el patrón **Visitor** sobre el AST generado.
 
-**TREZ** es un lenguaje de programación de dominio específico (DSL) enfocado en Deep Learning, desarrollado completamente desde cero sin el uso de librerías externas para los cálculos matemáticos o de tensores (cero dependencias a NumPy, PyTorch, etc.). 
+---
 
-El lenguaje está diseñado bajo un **paradigma funcional** y utiliza el **patrón de diseño Visitor** para la evaluación de su Árbol Sintáctico Abstracto (AST).
+## Caracteristicas Principales
 
-## 🚀 Características Principales
+- **Cero dependencias externas:** Motor matemático, tensores, funciones de activación, backpropagation y estructuras de datos implementados en Python puro.
+- **Paradigma funcional:** Bindings inmutables (`let`), funciones puras, closures con recursión, lambdas anonimas (`\x -> expr`).
+- **Patron Visitor:** `TrezVisitor` recorre el AST nodo a nodo. Cada construcción del lenguaje tiene su `visitX()` correspondiente.
+- **Operador pipe `|>`:** Encadena transformaciones: `datos |> normalizar |> relu` equivale a `relu(normalizar(datos))`.
+- **Namespaces:** La stdlib se invoca como `Tensordoz.dot(A, B)`, `Mathdoz.relu(x)`, `Metricsdoz.mse(Y, Yp)`.
+- **Construido con ANTLR4:** Gramatica Tipo 2 (Libre de Contexto) compilada a Python.
 
-*   **Sin Dependencias Externas:** Todos los cálculos matemáticos, estructuras de tensores, funciones de activación (ReLU, Sigmoid) y algoritmos de retropropagación están construidos nativamente.
-*   **Paradigma Funcional:** Enfocado en funciones puras, inmutabilidad y evaluación de expresiones sin efectos secundarios.
-*   **Patrón Visitor:** La ejecución del código se realiza recorriendo el AST generado mediante un diseño Visitor estructurado en Python.
-*   **Enfoque en Deep Learning:** Capacidad para definir y entrenar redes neuronales, autoencoders y redes siamesas desde sintaxis nativa.
-*   **Construido con ANTLR4:** Análisis léxico y sintáctico robusto compilado a Python.
+---
 
-## 🛠️ Requisitos del Sistema
+## Requisitos
 
-*   **Python >= 3.10**
-*   **ANTLR4** (Generador de parsers)
-*   **Java JRE / JDK** (Requerido por la herramienta de generación de ANTLR4)
+- Python >= 3.10
+- antlr4-python3-runtime == 4.13.2  (`pip install antlr4-python3-runtime==4.13.2`)
+- Java JRE/JDK (solo para regenerar el parser desde las gramáticas `.g4`)
 
-## 📦 Primera Entrega
+---
 
-La primera iteración del lenguaje permite el análisis y ejecución matemática básica:
-*   Suma (`+`)
-*   Resta (`-`)
-*   Multiplicación (`*`)
-*   División (`/`)
-*   Soporte para jerarquía de operaciones usando paréntesis `()`.
+## Uso
+
+```bash
+cd src
+python3 main.py <archivo.trez>
+```
+
+---
+
+## Sintaxis Rapida
+
+```trez
+// Variables (bindings inmutables)
+let lr = 0.01;
+let pesos = [0.5, 0.3, 0.1];
+let matriz = [[1, 2], [3, 4]];
+
+// Funciones con recursión
+func factorial(n) {
+    if (n <= 1) { return 1; }
+    return n * factorial(n - 1);
+}
+mostrar(factorial(6));   // 720
+
+// Lambda anónima
+let doble = \x -> x * 2;
+
+// Operador pipe
+let resultado = [1, 2, 3] |> relu |> sigmoid;
+
+// Namespace de módulo
+let salida = Tensordoz.dot(W, X);
+let error  = Metricsdoz.mse(Y_real, Y_pred);
+
+// Desestructuración de tupla
+let [W1, b1] = DLdoz.init_dense(4, 16);
+
+// Condicionales encadenados
+func clasificar(x) {
+    if (x < 0)      { return "negativo"; }
+    else if (x == 0){ return "cero"; }
+    else            { return "positivo"; }
+}
+
+// Bucles
+for i in range(10) { mostrar(i); }
+while (cond) { ... }
+
+// Estructuras de datos
+let q = Queue();
+let q = q.enqueue(42);
+
+let s = Stack();
+let s = s.push(10);
+
+let d = {nombre: "TREZ", version: 2};
+mostrar(d["nombre"]);
+```
+
+---
+
+## Librería Estándar Nativa
+
+Todos los módulos están implementados en Python puro — ninguna función llama a librería externa.
+
+| Módulo | Funciones disponibles |
+|---|---|
+| `Mathdoz` / global | `relu`, `sigmoid`, `exp`, `log`, `sin`, `cos`, `tan`, `sqrt`, `pow`, `abs`, `factorial`; constantes `PI`, `E` |
+| `Tensordoz` | `dot`, `transpose` *(reshape, flatten, add, concat — E3)* |
+| `Metricsdoz` | `mse`, `mse_grad` *(cross_entropy, accuracy, rmse — E3)* |
+| `IOdoz` | `leer`, `escribir` *(read_csv — E3)* |
+| `Inspectdoz` | `spy`, `shape` |
+| `Optimdoz` | SGD, Adam *(E3)* |
+| `Structsdoz` | `Queue`, `Stack` |
+| `Plotdoz` | learning_curve, histogram *(Entrega Final)* |
+
+---
+
+## Estructura del Proyecto
+
+```
+TREZ/
+├── README.md
+├── Design.md
+├── src/
+│   ├── main.py                  # Punto de entrada del intérprete
+│   ├── visitor.py               # Patron Visitor — evaluación del AST
+│   ├── math_utilsdoz.py         # Re-exporta la stdlib al visitor
+│   ├── autograd.py              # Grafo computacional + backprop nativo
+│   ├── errors.py                # TrezError, TrezSyntaxError, TrezRuntimeError
+│   ├── error_listener.py        # TrezErrorListener para ANTLR4
+│   ├── parser/
+│   │   ├── TrezLexer.g4         # Gramática léxica
+│   │   ├── TrezParser.g4        # Gramática sintáctica (CFG Tipo 2)
+│   │   ├── TrezLexer.py         # Generado por ANTLR4
+│   │   ├── TrezParser.py        # Generado por ANTLR4
+│   │   └── TrezParserVisitor.py # Generado por ANTLR4
+│   └── lib/
+│       ├── mathdoz/             # core_mathdoz.py + tensor_mathdoz.py
+│       ├── activationsdoz/      # relu, sigmoid
+│       ├── lossesdoz/           # mse, mse_grad
+│       ├── iodoz/               # leer, escribir
+│       └── structsdoz/          # Queue, Stack
+└── tests/
+    ├── features/
+    │   ├── test_basic.trez
+    │   ├── test_math.trez
+    │   ├── test_dl.trez
+    │   ├── test_backprop.trez
+    │   ├── test_io.trez
+    │   └── test_new_features.trez   # func, for, dict, Queue, Stack, lambda
+    ├── runtime/
+    │   └── test_runtime_error.trez
+    └── syntax/
+        └── test_syntax_error.trez
+```
+
+---
+
+## Estado de Entregas
+
+| Entrega | Objetivo | Estado |
+|---|---|---|
+| Entrega 1 | Aritmetica basica, arrays, variables, funciones nativas, errores | Completa |
+| **Entrega 2** | Pipe `\|>`, lambdas `\x ->`, namespaces `Modulo.func()`, `let [a,b] = expr`, `Inspectdoz` | **En curso** |
+| Entrega 3 | `Tensordoz` completo (reshape/flatten/add/concat), `Optimdoz` (SGD/Adam), `Metricsdoz` completo, `IOdoz.read_csv` | Pendiente |
+| Entrega 4 | MLP entrenable en TREZ + suite con dataset CSV real | Pendiente |
+| Entrega Final | Autoencoder + `Plotdoz.learning_curve` + documentación completa | Pendiente |
+
+---
+
+Julián David Cristancho Bustos — Universidad Sergio Arboleda

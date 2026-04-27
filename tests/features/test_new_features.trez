@@ -1,0 +1,140 @@
+// ── 1. Funciones recursivas ───────────────────────────────────────────────
+func factorial(n) {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+func fibonacci(n) {
+    if (n <= 0) { return 0; }
+    if (n == 1) { return 1; }
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+mostrar("-- Recursion --");
+mostrar(factorial(6));    // 720
+mostrar(fibonacci(10));   // 55
+
+// ── 2. Condicionales encadenados (else if) ────────────────────────────────
+func clasificar(x) {
+    if (x < 0) {
+        return "negativo";
+    } else if (x == 0) {
+        return "cero";
+    } else {
+        return "positivo";
+    }
+}
+
+mostrar("-- Condicionales --");
+mostrar(clasificar(-5));
+mostrar(clasificar(0));
+mostrar(clasificar(7));
+
+// ── 3. NOT, &&, || ───────────────────────────────────────────────────────
+let a = true;
+let b = false;
+mostrar("-- Logica --");
+mostrar(not b);
+mostrar(a && b);
+mostrar(a || b);
+
+// ── 4. For loop + range ───────────────────────────────────────────────────
+mostrar("-- For + range --");
+let suma = 0;
+for i in range(5) {
+    let suma = suma + i;
+}
+// Acumular desde afuera requiere while; for crea scope propio.
+// Demostramos iteración con mostrar:
+for x in [10, 20, 30] {
+    mostrar(x);
+}
+
+// ── 5. Listas — métodos y acceso ─────────────────────────────────────────
+mostrar("-- Listas --");
+let nums = [3, 1, 4, 1, 5];
+mostrar(len(nums));
+mostrar(nums[2]);
+mostrar(head(nums));
+mostrar(tail(nums));
+let nums2 = append(nums, 9);
+mostrar(nums2);
+mostrar(nums2.reverse());
+mostrar(nums2.slice(1, 4));
+mostrar(nums.contains(4));
+
+// ── 6. Estructuras anidadas ───────────────────────────────────────────────
+mostrar("-- Anidadas --");
+let matrix = [[1, 2], [3, 4], [5, 6]];
+mostrar(matrix[1]);
+mostrar(matrix[1][0]);
+
+// ── 7. Diccionarios ───────────────────────────────────────────────────────
+mostrar("-- Diccionarios --");
+let persona = {nombre: "Julian", edad: 22, activo: true};
+mostrar(persona["nombre"]);
+mostrar(persona["edad"]);
+mostrar(keys(persona));
+mostrar(values(persona));
+let persona2 = persona.set("edad", 23);
+mostrar(persona2["edad"]);
+mostrar(persona.has("activo"));
+
+// ── 8. Queue ─────────────────────────────────────────────────────────────
+mostrar("-- Queue --");
+let q = Queue();
+let q = q.enqueue(1);
+let q = q.enqueue(2);
+let q = q.enqueue(3);
+mostrar(q.size());
+mostrar(q.peek());
+mostrar(q.toList());
+let resultado = q.dequeue();
+let val = resultado[0];
+let q   = resultado[1];
+mostrar(val);
+mostrar(q.toList());
+
+// ── 9. Stack ─────────────────────────────────────────────────────────────
+mostrar("-- Stack --");
+let s = Stack();
+let s = s.push(10);
+let s = s.push(20);
+let s = s.push(30);
+mostrar(s.size());
+mostrar(s.peek());
+let r = s.pop();
+mostrar(r[0]);
+mostrar(r[1].toList());
+
+// ── 10. Funciones de orden con listas ────────────────────────────────────
+mostrar("-- Func + listas --");
+func suma_lista(lst) {
+    if (len(lst) == 0) { return 0; }
+    return head(lst) + suma_lista(tail(lst));
+}
+mostrar(suma_lista([1, 2, 3, 4, 5]));  // 15
+
+func map_doble(lst) {
+    if (len(lst) == 0) { return []; }
+    return append(map_doble(tail(lst)), head(lst) * 2);
+}
+mostrar(map_doble([1, 2, 3]));   // [6, 4, 2] reversed pero correcto
+
+// ── 11. While con comparadores ───────────────────────────────────────────
+mostrar("-- While --");
+let cnt = 0;
+let acc = 0;
+while (cnt < 5) {
+    let acc = acc + cnt;
+    let cnt = cnt + 1;
+}
+mostrar(cnt);
+mostrar(acc);
+
+// ── 12. Tipo str / num ────────────────────────────────────────────────────
+mostrar("-- Conversion --");
+mostrar(str(42));
+mostrar(num("3.14"));

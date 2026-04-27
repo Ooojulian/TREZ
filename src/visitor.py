@@ -5,143 +5,391 @@ sys.path.append(os.path.dirname(__file__))
 from parser.TrezParser import TrezParser
 from parser.TrezParserVisitor import TrezParserVisitor as AntlrTrezVisitor
 import math_utilsdoz
-from errors import TrezRuntimeError
+from errors import TrezRuntimeError, UndefinedSymbolError
 from lib.iodoz.iodoz import read_file_doz, write_file_doz
+from lib.structsdoz.structsdoz import TrezQueue, TrezStack, make_queue, make_stack
+from lib.inspectdoz.inspectdoz import spy as inspectdoz_spy, shape as inspectdoz_shape
+
+
+# ── Namespace registry — Modulo.funcion() dispatch ───────────────────────────
+
+_NAMESPACES = {
+    'Tensordoz': {
+        'dot':       lambda args: math_utilsdoz.dot(args[0], args[1]),
+        'transpose': lambda args: math_utilsdoz.transpose(args[0]),
+    },
+    'Mathdoz': {
+        'relu':      lambda args: math_utilsdoz.relu(args[0]),
+        'sigmoid':   lambda args: math_utilsdoz.sigmoid(args[0]),
+        'exp':       lambda args: math_utilsdoz.exp_doz(args[0]),
+        'log':       lambda args: math_utilsdoz.log_doz(args[0]),
+        'sin':       lambda args: math_utilsdoz.sin_doz(args[0]),
+        'cos':       lambda args: math_utilsdoz.cos_doz(args[0]),
+        'tan':       lambda args: math_utilsdoz.tan_doz(args[0]),
+        'sqrt':      lambda args: math_utilsdoz.sqrt_doz(args[0]),
+        'abs':       lambda args: math_utilsdoz.abs_doz(args[0]),
+        'pow':       lambda args: math_utilsdoz.pow_doz(args[0], args[1]),
+        'factorial': lambda args: math_utilsdoz.factorial_doz(args[0]),
+    },
+    'Metricsdoz': {
+        'mse':      lambda args: math_utilsdoz.mse(args[0], args[1]),
+        'mse_grad': lambda args: math_utilsdoz.mse_grad(args[0], args[1]),
+    },
+    'IOdoz': {
+        'leer':    lambda args: read_file_doz(args[0]),
+        'escribir': lambda args: write_file_doz(args[0], args[1]),
+    },
+    'Inspectdoz': {
+        'spy':   lambda args: inspectdoz_spy(args[0]),
+        'shape': lambda args: inspectdoz_shape(args[0]),
+    },
+}
+
+
+# ── Signal for return statement ───────────────────────────────────────────────
+
+class ReturnSignal(Exception):
+    def __init__(self, value):
+        self.value = value
+
+
+# ── Callable types ────────────────────────────────────────────────────────────
+
+class TrezFunction:
+    """Named closure: captures params, body AST, and definition environment."""
+    def __init__(self, name, params, body_ctx, env):
+        self.name = name
+        self.params = params
+        self.body_ctx = body_ctx
+        self.env = env
+
+    def __repr__(self):
+        return f"<func {self.name}({', '.join(self.params)})>"
+
+
+class TrezLambda:
+    """Anonymous single-parameter lambda: \\param -> rhs."""
+    def __init__(self, param, body_ctx, env):
+        self.param = param
+        self.body_ctx = body_ctx
+        self.env = env
+
+    def __repr__(self):
+        return f"<lambda {self.param}>"
+
+
+class TrezBuiltin:
+    """Wraps a native Python callable so it can be passed as a first-class value."""
+    def __init__(self, name, fn):
+        self.name = name
+        self.fn = fn
+
+    def __repr__(self):
+        return f"<builtin {self.name}>"
+
+
+# ── Scope chain ───────────────────────────────────────────────────────────────
+
+class Environment:
+    """Linked scopes — functional lookup chain, no global mutable state."""
+    def __init__(self, parent=None):
+        self.bindings = {}
+        self.parent = parent
+
+    def get(self, name):
+        if name in self.bindings:
+            return self.bindings[name]
+        if self.parent:
+            return self.parent.get(name)
+        raise UndefinedSymbolError(name)
+
+    def set(self, name, value):
+        self.bindings[name] = value
+
+    def update(self, name, value):
+        """Update existing binding in nearest enclosing scope; create locally if not found."""
+        if name in self.bindings:
+            self.bindings[name] = value
+            return
+        if self.parent and self.parent.has(name):
+            self.parent.update(name, value)
+            return
+        self.bindings[name] = value
+
+    def has(self, name):
+        if name in self.bindings:
+            return True
+        if self.parent:
+            return self.parent.has(name)
+        return False
+
+
+# ── Visitor ───────────────────────────────────────────────────────────────────
 
 class TrezVisitor(AntlrTrezVisitor):
     def __init__(self):
         super().__init__()
-        self.memory = {} # Simulating functional bindings/memory
+        self.global_env = Environment()
+        self.env = self.global_env
+        self._call_depth = 0  # >0 when inside a function/lambda body
+        self._register_builtins()
+
+    def _register_builtins(self):
+        """Register native math functions as first-class values in global scope."""
+        builtins = {
+            'relu':      lambda x: math_utilsdoz.relu(x),
+            'sigmoid':   lambda x: math_utilsdoz.sigmoid(x),
+            'sqrt':      lambda x: math_utilsdoz.sqrt_doz(x),
+            'exp':       lambda x: math_utilsdoz.exp_doz(x),
+            'log':       lambda x: math_utilsdoz.log_doz(x),
+            'sin':       lambda x: math_utilsdoz.sin_doz(x),
+            'cos':       lambda x: math_utilsdoz.cos_doz(x),
+            'tan':       lambda x: math_utilsdoz.tan_doz(x),
+            'abs':       lambda x: math_utilsdoz.abs_doz(x),
+            'factorial': lambda x: math_utilsdoz.factorial_doz(x),
+        }
+        for name, fn in builtins.items():
+            self.global_env.set(name, TrezBuiltin(name, fn))
+
+    # ── program ──────────────────────────────────────────────────────────────
 
     def visitProgram(self, ctx: TrezParser.ProgramContext):
         for stmt in ctx.statement():
             self.visit(stmt)
         return None
 
+    # ── rhs delegation (lambda | expr) ──────────────────────────────────────
+
+    def visitLambdaDef(self, ctx: TrezParser.LambdaDefContext):
+        param = ctx.ID().getText()
+        return TrezLambda(param, ctx.rhs(), self.env)
+
+    def visitExprRhs(self, ctx: TrezParser.ExprRhsContext):
+        return self.visit(ctx.expr())
+
+    # ── statements ───────────────────────────────────────────────────────────
+
     def visitLet_stmt(self, ctx: TrezParser.Let_stmtContext):
-        var_name = ctx.ID().getText()
-        value = self.visit(ctx.expr())
-        self.memory[var_name] = value # Immutable in theory, but storing state
+        name = ctx.ID().getText()
+        value = self.visit(ctx.rhs())
+        self.env.update(name, value)
         return value
 
+    def visitBind_tuple(self, ctx: TrezParser.Bind_tupleContext):
+        """let [a, b, c] = rhs  — destructures a list into named bindings."""
+        names = [tok.getText() for tok in ctx.ID()]
+        value = self.visit(ctx.rhs())
+        if not isinstance(value, list):
+            raise TrezRuntimeError(
+                f"Desestructuración de tupla requiere una lista, recibió {type(value).__name__}."
+            )
+        if len(value) < len(names):
+            raise TrezRuntimeError(
+                f"Desestructuración: se esperaban {len(names)} elementos, la lista tiene {len(value)}."
+            )
+        for name, val in zip(names, value):
+            self.env.update(name, val)
+        return value
+
+    def visitFunc_def(self, ctx: TrezParser.Func_defContext):
+        name = ctx.ID().getText()
+        params = [p.getText() for p in ctx.param_list().ID()] if ctx.param_list() else []
+        fn = TrezFunction(name, params, ctx.block(), self.env)
+        self.env.set(name, fn)
+        return fn
+
+    def visitReturn_stmt(self, ctx: TrezParser.Return_stmtContext):
+        raise ReturnSignal(self.visit(ctx.rhs()))
+
     def visitExpr_stmt(self, ctx: TrezParser.Expr_stmtContext):
-        result = self.visit(ctx.expr())
-        print(result) # Print the result of the expression
-        return result
-
-    def visitVarExpr(self, ctx: TrezParser.VarExprContext):
-        var_name = ctx.ID().getText()
-        # Verificar constantes matemáticas reservadas (ej. PI, E)
-        if hasattr(math_utilsdoz, 'constants') and var_name in math_utilsdoz.constants:
-            return math_utilsdoz.constants[var_name]
-            
-        if var_name in self.memory:
-            return self.memory[var_name]
-        raise TrezRuntimeError(f"Undefined variable: '{var_name}'")
-
-    def visitFuncCallExpr(self, ctx: TrezParser.FuncCallExprContext):
-        func_name = ctx.ID().getText()
-        # With the updated grammar, ctx.expr() returns all argument expressions directly
-        args = [self.visit(expr_ctx) for expr_ctx in ctx.expr()]
-        
-        # dispatch to math_utils
-        if func_name == 'relu':
-            return math_utilsdoz.relu(args[0])
-        elif func_name == 'sigmoid':
-            return math_utilsdoz.sigmoid(args[0])
-        elif func_name == 'dot':
-            return math_utilsdoz.dot(args[0], args[1])
-        elif func_name == 'transpose':
-            return math_utilsdoz.transpose(args[0])
-        elif func_name == 'mse':
-            return math_utilsdoz.mse(args[0], args[1])
-        elif func_name == 'mse_grad':
-            return math_utilsdoz.mse_grad(args[0], args[1])
-        # Native Core Math API
-        elif func_name == 'abs':
-            return math_utilsdoz.abs_doz(args[0])
-        elif func_name == 'sqrt':
-            return math_utilsdoz.sqrt_doz(args[0])
-        elif func_name == 'pow':
-            return math_utilsdoz.pow_doz(args[0], args[1])
-        elif func_name == 'exp':
-            return math_utilsdoz.exp_doz(args[0])
-        elif func_name == 'log':
-            return math_utilsdoz.log_doz(args[0])
-        elif func_name == 'sin':
-            return math_utilsdoz.sin_doz(args[0])
-        elif func_name == 'cos':
-            return math_utilsdoz.cos_doz(args[0])
-        elif func_name == 'tan':
-            return math_utilsdoz.tan_doz(args[0])
-        elif func_name == 'factorial':
-            return math_utilsdoz.factorial_doz(args[0])
-        # Native File I/O API
-        elif func_name == 'leer':
-            return read_file_doz(args[0])
-        elif func_name == 'escribir':
-            return write_file_doz(args[0], args[1])
-        elif func_name == 'mostrar' or func_name == 'print':
-            # mostrar(x) - print to stdout
-            print(args[0])
-            return None
-        else:
-            raise TrezRuntimeError(f"Unknown system function: '{func_name}'")
-
-    def visitBlock(self, ctx: TrezParser.BlockContext):
-        result = None
-        for stmt in ctx.statement():
-            result = self.visit(stmt)
+        result = self.visit(ctx.rhs())
+        if result is not None and self._call_depth == 0:
+            print(result)
         return result
 
     def visitIf_stmt(self, ctx: TrezParser.If_stmtContext):
-        cond = self.visit(ctx.expr())
+        cond = self.visit(ctx.rhs())
         if cond:
             return self.visit(ctx.block(0))
-        elif ctx.block(1) is not None:
+        if ctx.if_stmt():
+            return self.visit(ctx.if_stmt())
+        if ctx.block(1) is not None:
             return self.visit(ctx.block(1))
         return None
 
     def visitWhile_stmt(self, ctx: TrezParser.While_stmtContext):
-        # Simple while loop; beware infinite loops
-        while self.visit(ctx.expr()):
+        while self.visit(ctx.rhs()):
             self.visit(ctx.block())
         return None
 
+    def visitFor_stmt(self, ctx: TrezParser.For_stmtContext):
+        var_name = ctx.ID().getText()
+        iterable = self.visit(ctx.rhs())
+        if isinstance(iterable, (TrezQueue, TrezStack)):
+            iterable = iterable.to_list()
+        if not isinstance(iterable, (list, str)):
+            raise TrezRuntimeError("for..in requiere una lista o texto.")
+        for item in iterable:
+            loop_env = Environment(self.env)
+            loop_env.set(var_name, item)
+            saved = self.env
+            self.env = loop_env
+            try:
+                self.visit(ctx.block())
+            finally:
+                self.env = saved
+        return None
+
+    def visitBlock(self, ctx: TrezParser.BlockContext):
+        block_env = Environment(self.env)
+        saved = self.env
+        self.env = block_env
+        result = None
+        try:
+            for stmt in ctx.statement():
+                result = self.visit(stmt)
+        finally:
+            self.env = saved
+        return result
+
+    # ── lambda & pipe ─────────────────────────────────────────────────────────
+
+    def visitPipeOp(self, ctx: TrezParser.PipeOpContext):
+        """expr |> expr  ≡  right(left) — left-associative"""
+        value = self.visit(ctx.expr(0))
+        fn    = self.visit(ctx.expr(1))
+        return self._apply(fn, [value])
+
+    def _apply(self, fn, args):
+        """Call a TrezFunction, TrezLambda, or builtin with args."""
+        if isinstance(fn, TrezLambda):
+            call_env = Environment(fn.env)
+            call_env.set(fn.param, args[0])
+            saved = self.env
+            self.env = call_env
+            self._call_depth += 1
+            try:
+                result = self.visit(fn.body_ctx)
+            finally:
+                self.env = saved
+                self._call_depth -= 1
+            return result
+        if isinstance(fn, TrezFunction):
+            return self._call_function(fn, args)
+        raise TrezRuntimeError(
+            f"El operador |> requiere una función en el lado derecho, recibió {type(fn).__name__}."
+        )
+
+    # ── expressions ──────────────────────────────────────────────────────────
+
+    def visitNumExpr(self, ctx: TrezParser.NumExprContext):
+        val = ctx.getText()
+        return float(val) if '.' in val else int(val)
+
+    def visitStringExpr(self, ctx: TrezParser.StringExprContext):
+        raw = ctx.getText()[1:-1]
+        raw = raw.replace('\\n', '\n').replace('\\t', '\t')
+        raw = raw.replace('\\"', '"').replace('\\\\', '\\')
+        return raw
+
+    def visitBoolExpr(self, ctx: TrezParser.BoolExprContext):
+        return ctx.getText() == 'true'
+
+    def visitVarExpr(self, ctx: TrezParser.VarExprContext):
+        name = ctx.ID().getText()
+        if hasattr(math_utilsdoz, 'constants') and name in math_utilsdoz.constants:
+            return math_utilsdoz.constants[name]
+        return self.env.get(name)
+
+    def visitParenExpr(self, ctx: TrezParser.ParenExprContext):
+        return self.visit(ctx.rhs())
+
+    def visitPostfixExpr(self, ctx: TrezParser.PostfixExprContext):
+        return self.visit(ctx.postfix())
+
+    def visitAtomExpr(self, ctx: TrezParser.AtomExprContext):
+        return self.visit(ctx.atom())
+
     def visitArrayExpr(self, ctx: TrezParser.ArrayExprContext):
-        # Visit the array rule context
         return self.visit(ctx.array())
 
     def visitArray(self, ctx: TrezParser.ArrayContext):
-        items = []
-        for expr_ctx in ctx.expr():
-            items.append(self.visit(expr_ctx))
-        return items
+        return [self.visit(r) for r in ctx.rhs()]
 
-    def visitMulDivExpr(self, ctx: TrezParser.MulDivExprContext):
+    def visitDictExpr(self, ctx: TrezParser.DictExprContext):
+        return self.visit(ctx.dict_())
+
+    def visitDict(self, ctx: TrezParser.DictContext):
+        result = {}
+        for entry in ctx.dict_entry():
+            key_token = entry.getChild(0).getText()
+            key = key_token[1:-1] if key_token.startswith('"') else key_token
+            result[key] = self.visit(entry.rhs())
+        return result
+
+    # ── operators ────────────────────────────────────────────────────────────
+
+    def visitNotExpr(self, ctx: TrezParser.NotExprContext):
+        return not bool(self.visit(ctx.expr()))
+
+    def visitAndExpr(self, ctx: TrezParser.AndExprContext):
         left = self.visit(ctx.expr(0))
+        if not bool(left):
+            return False
+        return bool(self.visit(ctx.expr(1)))
+
+    def visitOrExpr(self, ctx: TrezParser.OrExprContext):
+        left = self.visit(ctx.expr(0))
+        if bool(left):
+            return True
+        return bool(self.visit(ctx.expr(1)))
+
+    def visitEqExpr(self, ctx: TrezParser.EqExprContext):
+        left  = self.visit(ctx.expr(0))
+        right = self.visit(ctx.expr(1))
+        return left == right if ctx.getChild(1).getText() == '==' else left != right
+
+    def visitCompareExpr(self, ctx: TrezParser.CompareExprContext):
+        left  = self.visit(ctx.expr(0))
         right = self.visit(ctx.expr(1))
         op = ctx.getChild(1).getText()
-        
-        # Scalar multiplication over arrays (for Learning Rate `lr * array`)
+        if op == '<':  return left < right
+        if op == '<=': return left <= right
+        if op == '>':  return left > right
+        return left >= right
+
+    def visitAddSubExpr(self, ctx: TrezParser.AddSubExprContext):
+        left  = self.visit(ctx.expr(0))
+        right = self.visit(ctx.expr(1))
+        op = ctx.getChild(1).getText()
+        if isinstance(left, list) and isinstance(right, list):
+            if len(left) != len(right):
+                raise TrezRuntimeError("Listas de distinto tamaño en suma/resta.")
+            if op == '+':
+                return [l + r for l, r in zip(left, right)]
+            return [l - r for l, r in zip(left, right)]
+        if op == '+':
+            return left + right
+        return left - right
+
+    def visitMulDivExpr(self, ctx: TrezParser.MulDivExprContext):
+        left  = self.visit(ctx.expr(0))
+        right = self.visit(ctx.expr(1))
+        op = ctx.getChild(1).getText()
         if op == '*':
             if isinstance(left, (int, float)) and isinstance(right, list):
                 return [left * r for r in right]
-            elif isinstance(left, list) and isinstance(right, (int, float)):
+            if isinstance(left, list) and isinstance(right, (int, float)):
                 return [l * right for l in left]
             return left * right
-        elif op == '/':
+        if op == '/':
+            if right == 0:
+                raise TrezRuntimeError("División por cero.")
             return left / right
-        else: # modulo
-            return left % right
+        return left % right
 
     def visitPowExpr(self, ctx: TrezParser.PowExprContext):
-        left = self.visit(ctx.expr(0))
-        right = self.visit(ctx.expr(1))
-        # prefer math_utilsdoz if available
-        if hasattr(math_utilsdoz, 'pow_doz'):
-            return math_utilsdoz.pow_doz(left, right)
-        return left ** right
+        return math_utilsdoz.pow_doz(self.visit(ctx.expr(0)), self.visit(ctx.expr(1)))
 
     def visitUnaryMinusExpr(self, ctx: TrezParser.UnaryMinusExprContext):
         val = self.visit(ctx.expr())
@@ -149,78 +397,241 @@ class TrezVisitor(AntlrTrezVisitor):
             return [-v for v in val]
         return -val
 
-    def visitBoolExpr(self, ctx: TrezParser.BoolExprContext):
-        txt = ctx.getText()
-        return True if txt == 'true' else False
+    # ── postfix ───────────────────────────────────────────────────────────────
 
-    def visitEqExpr(self, ctx: TrezParser.EqExprContext):
-        left = self.visit(ctx.expr(0))
-        right = self.visit(ctx.expr(1))
-        op = ctx.getChild(1).getText()
-        if op == '==':
-            return left == right
-        else:
-            return left != right
+    def visitIndexExpr(self, ctx: TrezParser.IndexExprContext):
+        obj = self.visit(ctx.postfix())
+        idx = self.visit(ctx.expr())
+        if isinstance(obj, (list, str)):
+            if not isinstance(idx, int):
+                idx = int(idx)
+            if idx < 0 or idx >= len(obj):
+                raise TrezRuntimeError(f"Índice {idx} fuera de rango (tamaño {len(obj)}).")
+            return obj[idx]
+        if isinstance(obj, dict):
+            key = idx if isinstance(idx, str) else str(idx)
+            if key not in obj:
+                raise TrezRuntimeError(f"Clave '{key}' no existe en el diccionario.")
+            return obj[key]
+        raise TrezRuntimeError("El operador [] requiere lista, texto o diccionario.")
 
-    def visitCompareExpr(self, ctx: TrezParser.CompareExprContext):
-        left = self.visit(ctx.expr(0))
-        right = self.visit(ctx.expr(1))
-        op = ctx.getChild(1).getText()
-        if op == '<':
-            return left < right
-        elif op == '<=':
-            return left <= right
-        elif op == '>':
-            return left > right
-        else:
-            return left >= right
+    def visitMethodCallExpr(self, ctx: TrezParser.MethodCallExprContext):
+        method      = ctx.ID().getText()
+        module_name = ctx.postfix().getText()
+        args        = [self.visit(r) for r in ctx.rhs()]
 
-    def visitAndExpr(self, ctx: TrezParser.AndExprContext):
-        left = self.visit(ctx.expr(0))
-        # short-circuit
-        if not bool(left):
-            return False
-        right = self.visit(ctx.expr(1))
-        return bool(right)
+        # Namespace dispatch — check module name BEFORE evaluating postfix
+        if module_name in _NAMESPACES:
+            ns = _NAMESPACES[module_name]
+            if method not in ns:
+                raise TrezRuntimeError(
+                    f"El módulo '{module_name}' no tiene la función '{method}'."
+                )
+            return ns[method](args)
 
-    def visitOrExpr(self, ctx: TrezParser.OrExprContext):
-        left = self.visit(ctx.expr(0))
-        if bool(left):
-            return True
-        right = self.visit(ctx.expr(1))
-        return bool(right)
+        obj = self.visit(ctx.postfix())
+        return self._dispatch_method(obj, method, args)
 
-    def visitAddSubExpr(self, ctx: TrezParser.AddSubExprContext):
-        left = self.visit(ctx.expr(0))
-        right = self.visit(ctx.expr(1))
-        op = ctx.getChild(1).getText()
-        
-        # Support array component-wise addition/subtraction
-        if isinstance(left, list) and isinstance(right, list):
-            if len(left) != len(right):
-                raise TrezRuntimeError("Cannot add/subtract arrays of different lengths")
-            if op == '+':
-                return [l + r for l, r in zip(left, right)]
-            else:
-                return [l - r for l, r in zip(left, right)]
+    def _dispatch_method(self, obj, method, args):
+        # ── list ──
+        if isinstance(obj, list):
+            if method == 'append':   return obj + [args[0]]
+            if method == 'head':
+                if not obj: raise TrezRuntimeError("head() en lista vacía.")
+                return obj[0]
+            if method == 'tail':     return obj[1:]
+            if method == 'len':      return len(obj)
+            if method == 'contains': return args[0] in obj
+            if method == 'reverse':  return obj[::-1]
+            if method == 'get':
+                idx = int(args[0])
+                if idx < 0 or idx >= len(obj):
+                    raise TrezRuntimeError(f"Índice {idx} fuera de rango.")
+                return obj[idx]
+            if method == 'slice':
+                return obj[int(args[0]):int(args[1])]
+            raise TrezRuntimeError(f"Lista no tiene método '{method}'.")
 
-        if op == '+':
-            return left + right
-        else:
-            return left - right
+        # ── dict ──
+        if isinstance(obj, dict):
+            if method == 'get':
+                key = args[0] if isinstance(args[0], str) else str(args[0])
+                if key not in obj: raise TrezRuntimeError(f"Clave '{key}' no existe.")
+                return obj[key]
+            if method == 'keys':   return list(obj.keys())
+            if method == 'values': return list(obj.values())
+            if method == 'has':
+                key = args[0] if isinstance(args[0], str) else str(args[0])
+                return key in obj
+            if method == 'set':
+                key = args[0] if isinstance(args[0], str) else str(args[0])
+                new_d = dict(obj)
+                new_d[key] = args[1]
+                return new_d
+            raise TrezRuntimeError(f"Diccionario no tiene método '{method}'.")
 
-    def visitNumExpr(self, ctx: TrezParser.NumExprContext):
-        val = ctx.getText()
-        return float(val) if '.' in val else int(val)
+        # ── Queue ──
+        if isinstance(obj, TrezQueue):
+            if method == 'enqueue': return obj.enqueue(args[0])
+            if method == 'dequeue':
+                val, new_q = obj.dequeue()
+                return [val, new_q]
+            if method == 'peek':    return obj.peek()
+            if method == 'isEmpty': return obj.is_empty()
+            if method == 'size':    return obj.size()
+            if method == 'toList':  return obj.to_list()
+            raise TrezRuntimeError(f"Queue no tiene método '{method}'.")
 
-    def visitStringExpr(self, ctx: TrezParser.StringExprContext):
-        # Remove surrounding quotes and process escape sequences
-        raw = ctx.getText()[1:-1]
-        raw = raw.replace('\\n', '\n')
-        raw = raw.replace('\\t', '\t')
-        raw = raw.replace('\\"', '"')
-        raw = raw.replace('\\\\', '\\')
-        return raw
-        
-    def visitParenExpr(self, ctx: TrezParser.ParenExprContext):
-        return self.visit(ctx.expr())
+        # ── Stack ──
+        if isinstance(obj, TrezStack):
+            if method == 'push':    return obj.push(args[0])
+            if method == 'pop':
+                val, new_s = obj.pop()
+                return [val, new_s]
+            if method == 'peek':    return obj.peek()
+            if method == 'isEmpty': return obj.is_empty()
+            if method == 'size':    return obj.size()
+            if method == 'toList':  return obj.to_list()
+            raise TrezRuntimeError(f"Stack no tiene método '{method}'.")
+
+        # ── string ──
+        if isinstance(obj, str):
+            if method == 'len':      return len(obj)
+            if method == 'contains': return args[0] in obj
+            raise TrezRuntimeError(f"Texto no tiene método '{method}'.")
+
+        raise TrezRuntimeError(f"El objeto no soporta métodos (tipo: {type(obj).__name__}).")
+
+    # ── function call ─────────────────────────────────────────────────────────
+
+    def visitFuncCallExpr(self, ctx: TrezParser.FuncCallExprContext):
+        func_name = ctx.ID().getText()
+        args = [self.visit(r) for r in ctx.rhs()]
+
+        # ── I/O ──
+        if func_name == 'leer':     return read_file_doz(args[0])
+        if func_name == 'escribir': return write_file_doz(args[0], args[1])
+        if func_name in ('mostrar', 'print'):
+            print(args[0])
+            return None
+
+        # ── structures ──
+        if func_name == 'Queue': return make_queue()
+        if func_name == 'Stack': return make_stack()
+
+        # ── collection utils ──
+        if func_name == 'len':
+            obj = args[0]
+            if isinstance(obj, (list, str)):              return len(obj)
+            if isinstance(obj, (TrezQueue, TrezStack)):   return obj.size()
+            raise TrezRuntimeError("len() requiere lista, texto o estructura.")
+        if func_name == 'append':
+            if not isinstance(args[0], list): raise TrezRuntimeError("append() requiere lista.")
+            return args[0] + [args[1]]
+        if func_name == 'head':
+            if not isinstance(args[0], list) or not args[0]:
+                raise TrezRuntimeError("head() requiere lista no vacía.")
+            return args[0][0]
+        if func_name == 'tail':
+            if not isinstance(args[0], list): raise TrezRuntimeError("tail() requiere lista.")
+            return args[0][1:]
+        if func_name == 'keys':
+            if not isinstance(args[0], dict): raise TrezRuntimeError("keys() requiere diccionario.")
+            return list(args[0].keys())
+        if func_name == 'values':
+            if not isinstance(args[0], dict): raise TrezRuntimeError("values() requiere diccionario.")
+            return list(args[0].values())
+        if func_name == 'range':
+            if len(args) == 1: return list(_range_doz(0, int(args[0]), 1))
+            if len(args) == 2: return list(_range_doz(int(args[0]), int(args[1]), 1))
+            return list(_range_doz(int(args[0]), int(args[1]), int(args[2])))
+        if func_name == 'str': return str(args[0])
+        if func_name == 'num':
+            try:
+                v = float(str(args[0]))
+                return int(v) if v == int(v) else v
+            except Exception:
+                raise TrezRuntimeError(f"num() no pudo convertir '{args[0]}' a número.")
+
+        # ── math ──
+        math_map = {
+            'relu':      lambda: math_utilsdoz.relu(args[0]),
+            'sigmoid':   lambda: math_utilsdoz.sigmoid(args[0]),
+            'dot':       lambda: math_utilsdoz.dot(args[0], args[1]),
+            'transpose': lambda: math_utilsdoz.transpose(args[0]),
+            'mse':       lambda: math_utilsdoz.mse(args[0], args[1]),
+            'mse_grad':  lambda: math_utilsdoz.mse_grad(args[0], args[1]),
+            'abs':       lambda: math_utilsdoz.abs_doz(args[0]),
+            'sqrt':      lambda: math_utilsdoz.sqrt_doz(args[0]),
+            'pow':       lambda: math_utilsdoz.pow_doz(args[0], args[1]),
+            'exp':       lambda: math_utilsdoz.exp_doz(args[0]),
+            'log':       lambda: math_utilsdoz.log_doz(args[0]),
+            'sin':       lambda: math_utilsdoz.sin_doz(args[0]),
+            'cos':       lambda: math_utilsdoz.cos_doz(args[0]),
+            'tan':       lambda: math_utilsdoz.tan_doz(args[0]),
+            'factorial': lambda: math_utilsdoz.factorial_doz(args[0]),
+        }
+        if func_name in math_map:
+            return math_map[func_name]()
+
+        # ── user-defined function, lambda, or builtin ──
+        fn = self.env.get(func_name)
+        if isinstance(fn, (TrezFunction, TrezLambda, TrezBuiltin)):
+            return self._apply(fn, args)
+        raise TrezRuntimeError(f"'{func_name}' no es una función.")
+
+    def _call_function(self, fn: TrezFunction, args):
+        if len(args) != len(fn.params):
+            raise TrezRuntimeError(
+                f"'{fn.name}' espera {len(fn.params)} arg(s), recibió {len(args)}."
+            )
+        call_env = Environment(fn.env)
+        for param, val in zip(fn.params, args):
+            call_env.set(param, val)
+        call_env.set(fn.name, fn)  # self-reference for recursion
+        saved = self.env
+        self.env = call_env
+        self._call_depth += 1
+        result = None
+        try:
+            for stmt in fn.body_ctx.statement():
+                self.visit(stmt)
+        except ReturnSignal as r:
+            result = r.value
+        finally:
+            self.env = saved
+            self._call_depth -= 1
+        return result
+
+    def _apply(self, fn, args):
+        """Unified call for TrezFunction, TrezLambda, and TrezBuiltin."""
+        if isinstance(fn, TrezBuiltin):
+            return fn.fn(*args)
+        if isinstance(fn, TrezFunction):
+            return self._call_function(fn, args)
+        if isinstance(fn, TrezLambda):
+            call_env = Environment(fn.env)
+            call_env.set(fn.param, args[0])
+            saved = self.env
+            self.env = call_env
+            self._call_depth += 1
+            try:
+                result = self.visit(fn.body_ctx)
+            finally:
+                self.env = saved
+                self._call_depth -= 1
+            return result
+        raise TrezRuntimeError(
+            f"|> requiere una función en el lado derecho, recibió {type(fn).__name__}."
+        )
+
+
+# ── native range (zero external deps) ────────────────────────────────────────
+
+def _range_doz(start, stop, step):
+    if step == 0:
+        raise TrezRuntimeError("range() step no puede ser 0.")
+    i = start
+    while (step > 0 and i < stop) or (step < 0 and i > stop):
+        yield i
+        i += step

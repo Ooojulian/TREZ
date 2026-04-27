@@ -1,0 +1,54 @@
+-- Recursion --
+720
+55
+-- Condicionales --
+negativo
+cero
+positivo
+-- Logica --
+True
+False
+True
+-- For + range --
+10
+20
+30
+-- Listas --
+5
+4
+3
+[1, 4, 1, 5]
+[3, 1, 4, 1, 5, 9]
+[9, 5, 1, 4, 1, 3]
+[1, 4, 1]
+True
+-- Anidadas --
+[3, 4]
+3
+-- Diccionarios --
+Julian
+22
+['nombre', 'edad', 'activo']
+['Julian', 22, True]
+23
+True
+-- Queue --
+3
+1
+[1, 2, 3]
+1
+[2, 3]
+-- Stack --
+3
+30
+30
+[10, 20]
+-- Func + listas --
+15
+[6, 4, 2]
+-- While --
+5
+10
+-- Conversion --
+42
+3.14
