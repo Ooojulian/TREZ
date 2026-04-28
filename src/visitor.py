@@ -9,6 +9,25 @@ from errors import TrezRuntimeError, UndefinedSymbolError
 from lib.iodoz.iodoz import read_file_doz, write_file_doz
 from lib.structsdoz.structsdoz import TrezQueue, TrezStack, make_queue, make_stack
 from lib.inspectdoz.inspectdoz import spy as inspectdoz_spy, shape as inspectdoz_shape
+from lib.optimdoz.optimdoz import sgd as optimdoz_sgd, adam as optimdoz_adam, zeros_like as optimdoz_zeros
+from lib.lossesdoz.lossdoz import cross_entropy as lossdoz_ce, cross_entropy_grad as lossdoz_ce_grad
+from lib.nndoz.nndoz import (
+    linear_init as nndoz_linear_init,
+    linear_forward as nndoz_linear_forward,
+    linear_backward as nndoz_linear_backward,
+    relu_forward as nndoz_relu_forward,
+    relu_backward as nndoz_relu_backward,
+    softmax_forward as nndoz_softmax,
+    sequential_forward as nndoz_sequential,
+    get_params as nndoz_params,
+    get_param_count as nndoz_param_count,
+)
+from lib.datadoz.datadoz import (
+    from_lists as datadoz_from_lists,
+    make_loader as datadoz_loader,
+    get_batches as datadoz_batches,
+    train_test_split as datadoz_split,
+)
 
 
 # ── Namespace registry — Modulo.funcion() dispatch ───────────────────────────
@@ -31,10 +50,6 @@ _NAMESPACES = {
         'pow':       lambda args: math_utilsdoz.pow_doz(args[0], args[1]),
         'factorial': lambda args: math_utilsdoz.factorial_doz(args[0]),
     },
-    'Metricsdoz': {
-        'mse':      lambda args: math_utilsdoz.mse(args[0], args[1]),
-        'mse_grad': lambda args: math_utilsdoz.mse_grad(args[0], args[1]),
-    },
     'IOdoz': {
         'leer':    lambda args: read_file_doz(args[0]),
         'escribir': lambda args: write_file_doz(args[0], args[1]),
@@ -42,6 +57,34 @@ _NAMESPACES = {
     'Inspectdoz': {
         'spy':   lambda args: inspectdoz_spy(args[0]),
         'shape': lambda args: inspectdoz_shape(args[0]),
+    },
+    'Optimdoz': {
+        'sgd':        lambda args: optimdoz_sgd(args[0], args[1], *args[2:]),
+        'adam':       lambda args: optimdoz_adam(args[0], args[1], args[2], args[3], int(args[4]), *args[5:]),
+        'zeros_like': lambda args: optimdoz_zeros(args[0]),
+    },
+    'Metricsdoz': {
+        'mse':              lambda args: math_utilsdoz.mse(args[0], args[1]),
+        'mse_grad':         lambda args: math_utilsdoz.mse_grad(args[0], args[1]),
+        'cross_entropy':    lambda args: lossdoz_ce(args[0], args[1]),
+        'cross_entropy_grad': lambda args: lossdoz_ce_grad(args[0], args[1]),
+    },
+    'NNdoz': {
+        'linear_init':     lambda args: nndoz_linear_init(int(args[0]), int(args[1])),
+        'linear_forward':  lambda args: nndoz_linear_forward(args[0], args[1]),
+        'linear_backward': lambda args: nndoz_linear_backward(args[0], args[1], args[2]),
+        'relu_forward':    lambda args: list(nndoz_relu_forward(args[0])),
+        'relu_backward':   lambda args: nndoz_relu_backward(args[0], args[1]),
+        'softmax':         lambda args: nndoz_softmax(args[0]),
+        'sequential':      lambda args: list(nndoz_sequential(args[0], args[1])),
+        'get_params':      lambda args: nndoz_params(args[0]),
+        'param_count':     lambda args: nndoz_param_count(args[0]),
+    },
+    'Datadoz': {
+        'from_lists':        lambda args: datadoz_from_lists(args[0], args[1]),
+        'make_loader':       lambda args: datadoz_loader(args[0], int(args[1]), bool(args[2]) if len(args) > 2 else False),
+        'get_batches':       lambda args: datadoz_batches(args[0]),
+        'train_test_split':  lambda args: datadoz_split(args[0], args[1], args[2] if len(args) > 2 else 0.2),
     },
 }
 

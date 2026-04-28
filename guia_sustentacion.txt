@@ -1,0 +1,819 @@
+================================================================================
+         GUÍA DE SUSTENTACIÓN — LENGUAJE TREZ
+         Para que los compañeros puedan sustentar el proyecto con confianza
+================================================================================
+
+Autor del proyecto: Julián David Cristancho Bustos
+Universidad Sergio Arboleda — Materia: Lenguajes de Programación
+Actualizado: 28 de abril de 2026
+
+================================================================================
+  PARTE 1: ¿QUÉ ES TREZ Y CUÁL ES LA IDEA CENTRAL?
+================================================================================
+
+TREZ es un DSL (Domain-Specific Language = Lenguaje de Dominio Específico)
+diseñado para definir, entrenar y evaluar modelos de Deep Learning.
+
+La idea central: en lugar de usar Python + NumPy + PyTorch, el usuario escribe
+código en TREZ, que es un lenguaje propio con su propio lexer, parser e
+intérprete. Todo el cómputo matemático (matrices, activaciones, backprop) está
+implementado desde cero en Python puro — sin NumPy, sin PyTorch.
+
+¿Por qué importa esto para la materia?
+  - Demuestra que entendemos cómo funciona un lenguaje por dentro.
+  - Usamos el patrón de diseño Visitor para recorrer el AST.
+  - El lenguaje tiene paradigma funcional (sin mutación, funciones puras).
+  - La gramática es formal Tipo 2 (libre de contexto) definida con ANTLR4.
+
+
+================================================================================
+  PARTE 2: ARQUITECTURA — CÓMO FUNCIONA POR DENTRO
+================================================================================
+
+Cuando escribes un archivo .trez y lo ejecutas, pasan 4 cosas:
+
+  1. LEXER (src/parser/TrezLexer.g4)
+     ─────────────────────────────────
+     Convierte el texto en tokens. Por ejemplo:
+       "let x = 10 + 5;"
+     Se convierte en:
+       [LET] [ID:"x"] [EQ] [NUMBER:10] [PLUS] [NUMBER:5] [SEMI]
+
+     El lexer reconoce: palabras clave (let, func, if, for, while, return),
+     operadores (+, -, *, /, %, **, |>, ->, &&, ||), literales (números,
+     strings, true/false), identificadores, comentarios (//).
+
+  2. PARSER (src/parser/TrezParser.g4)
+     ────────────────────────────────────
+     Toma los tokens y construye el AST (Árbol Sintáctico Abstracto).
+     La gramática es Tipo 2 de Chomsky (libre de contexto). Ejemplo:
+
+       program   → statement+
+       statement → let_stmt | func_def | if_stmt | for_stmt | expr_stmt
+       expr      → expr PIPE expr          (pipe |>)
+                 | expr (PLUS | MINUS) expr
+                 | expr (MUL | DIV) expr
+                 | BACKSLASH ID ARROW expr  (lambda)
+                 ...
+
+     ANTLR4 genera automáticamente el parser en Python a partir de este
+     archivo. Nosotros NO escribimos el parser a mano.
+
+  3. VISITOR (src/visitor.py)
+     ──────────────────────────
+     El patrón Visitor recorre el AST nodo por nodo. Cada tipo de nodo
+     del árbol tiene un método visitX() correspondiente en TrezVisitor.
+
+     Ejemplo: cuando el AST tiene un nodo de suma (AddSubExpr), el visitor
+     llama a visitAddSubExpr(), que evalúa el hijo izquierdo, el hijo
+     derecho, y retorna la suma.
+
+     El visitor también maneja:
+       - El Environment (entorno de variables — scopes encadenados)
+       - Las llamadas a funciones (TrezFunction, TrezLambda)
+       - Los namespaces de módulo (Tensordoz.dot, Mathdoz.sqrt, etc.)
+
+  4. STDLIB NATIVA (src/lib/)
+     ──────────────────────────
+     Funciones matemáticas, de álgebra lineal y de Deep Learning,
+     todas escritas en Python puro. Ninguna llama a math, numpy o torch.
+
+Diagrama simplificado:
+
+  archivo.trez → [Lexer] → tokens → [Parser] → AST → [Visitor] → resultado
+                                                          ↓
+                                                     [Stdlib nativa]
+
+
+================================================================================
+  PARTE 3: PATRÓN VISITOR — EXPLICACIÓN DETALLADA
+================================================================================
+
+El patrón Visitor es un patrón de diseño del GoF (Gang of Four). Separa la
+estructura de datos (el AST) de las operaciones que se hacen sobre ella
+(evaluar, compilar, optimizar).
+
+Componentes en TREZ:
+
+  A) INTERFAZ BASE — TrezParserVisitor (generada por ANTLR4)
+     ─────────────────────────────────────────────────────────
+     Define un método visit*() para CADA tipo de nodo del AST:
+       visitProgram(ctx), visitLet_stmt(ctx), visitAddSubExpr(ctx), etc.
+     Por defecto cada método llama a visitChildren(ctx) (recorre hijos).
+
+  B) VISITOR CONCRETO — TrezVisitor (src/visitor.py)
+     ──────────────────────────────────────────────────
+     Hereda de TrezParserVisitor y SOBRESCRIBE cada método con lógica real.
+     Ejemplo real del código:
+
+       def visitAddSubExpr(self, ctx):
+           left  = self.visit(ctx.expr(0))   # visita hijo izquierdo
+           right = self.visit(ctx.expr(1))   # visita hijo derecho
+           op    = ctx.op.text               # '+' o '-'
+           if op == '+':
+               return left + right           # o suma vectorial si son listas
+           else:
+               return left - right
+
+  C) DISPATCHER — el método visit()
+     ──────────────────────────────────
+     ANTLR4 genera visit() automáticamente. Mira el tipo del nodo
+     y llama al visitX() correcto. Eso es el Visitor en acción.
+
+  D) PUNTO DE ENTRADA — src/main.py
+     ─────────────────────────────────
+       tree    = parser.program()   # ANTLR4 construye el AST
+       visitor = TrezVisitor()      # instanciamos el Visitor concreto
+       visitor.visit(tree)          # arranca el recorrido
+
+¿Por qué Visitor y no un switch gigante?
+  - Extensible: agregar una nueva construcción al lenguaje = agregar un
+    método visitNuevoNodo() sin tocar el resto.
+  - Separación de responsabilidades: el AST no sabe cómo evaluarse.
+  - Permite múltiples "visitors" sobre el mismo AST (evaluador, tipador,
+    optimizador, compilador a bytecode, etc.).
+
+
+================================================================================
+  PARTE 4: PARADIGMA FUNCIONAL — ¿QUÉ SIGNIFICA EN TREZ?
+================================================================================
+
+TREZ es funcional en estos sentidos concretos:
+
+  1. BINDINGS INMUTABLES con 'let'
+     ──────────────────────────────
+     'let' no es una variable mutable. Es un binding: un nombre ligado
+     a un valor. En Haskell o OCaml funcionan igual.
+
+       let x = 10;
+       let y = x + 5;   // 'y' es 15, no "x+5 evaluado después"
+
+  2. FUNCIONES PURAS
+     ─────────────────
+     Todas las funciones de la stdlib retornan nuevos valores, nunca
+     modifican los datos de entrada. Ejemplo:
+
+       let v = [1, 2, 3];
+       let v2 = v.reverse();   // v sigue siendo [1, 2, 3]
+                               // v2 es [3, 2, 1]
+
+  3. CLOSURES Y FUNCIONES DE PRIMER ORDEN
+     ────────────────────────────────────
+     Las funciones capturan el entorno donde fueron definidas (closure).
+     Se pueden pasar como argumentos:
+
+       let doble = \x -> x * 2;
+       let resultado = 5 |> doble;   // 10
+
+  4. OPERADOR PIPE |>
+     ──────────────────
+     "a |> f" equivale a "f(a)". Permite expresar pipelines funcionales:
+
+       datos |> normalizar |> relu |> sigmoid
+       // = sigmoid(relu(normalizar(datos)))
+
+     Sin variables intermedias, sin estado mutable. Solo transformaciones.
+
+  5. SIN EFECTOS SECUNDARIOS EN LA STDLIB
+     ────────────────────────────────────
+     dot(), relu(), mse(), etc. — ninguna imprime, modifica estado global
+     ni hace I/O. Solo reciben y retornan valores.
+
+
+================================================================================
+  PARTE 5: LA GRAMÁTICA — TIPO 2 DE CHOMSKY
+================================================================================
+
+La jerarquía de Chomsky clasifica las gramáticas en 4 tipos:
+  Tipo 0: sin restricción (máquinas de Turing)
+  Tipo 1: sensibles al contexto
+  Tipo 2: libres de contexto (CFG) ← TREZ usa esta
+  Tipo 3: regulares (expresiones regulares, autómatas finitos)
+
+Una gramática es Tipo 2 si TODAS sus producciones tienen la forma:
+  A → α
+donde A es un único no-terminal y α es cualquier cadena de terminales
+y no-terminales. NO depende del contexto que rodea a A.
+
+¿Por qué es Tipo 2 y no Tipo 3?
+  - Las gramáticas Tipo 3 no pueden tener recursión anidada.
+  - TREZ tiene expresiones anidadas: (1 + (2 * (3 - 4)))
+  - La regla 'expr → expr PLUS expr' es recursiva → imposible en Tipo 3.
+  - Las llaves anidadas de bloques también requieren Tipo 2.
+
+Ejemplo de producción del Parser de TREZ (TrezParser.g4):
+  program    : statement+ EOF ;
+  statement  : let_stmt | func_def | if_stmt | for_stmt | expr_stmt ;
+  let_stmt   : LET ID EQ expr SEMI ;
+  func_def   : FUNC ID LPAREN param_list? RPAREN block ;
+  expr       : expr PIPE expr          # pipeOp
+             | expr OR expr            # orExpr
+             | expr AND expr           # andExpr
+             | NOT expr                # notExpr
+             | expr (EQEQ | NEQ) expr  # eqExpr
+             | expr (PLUS | MINUS) expr # addSubExpr
+             | expr (MUL | DIV) expr   # mulDivExpr
+             | expr POW expr           # powExpr
+             | MINUS expr              # unaryMinus
+             | ID DOT ID LPAREN ...    # moduleCall
+             | ID LPAREN ...           # funcCall
+             | NUMBER | STRING | ID    # literales
+             ;
+
+La precedencia de operadores: en ANTLR4, las alternativas listadas
+PRIMERO tienen MENOR precedencia. Entonces:
+  Menor prec. → pipe |>, or, and, not, ==, comparaciones
+  Mayor prec. → *, /, %, **, unario, índice [], llamadas
+
+
+================================================================================
+  PARTE 6: SINTAXIS DE TREZ — REFERENCIA RÁPIDA
+================================================================================
+
+VARIABLES:
+  let x = 10;
+  let nombre = "TREZ";
+  let matriz = [[1, 2], [3, 4]];
+  let [a, b] = [1, 2];   // desestructuración
+
+FUNCIONES:
+  func factorial(n) {
+      if (n <= 1) { return 1; }
+      return n * factorial(n - 1);
+  }
+
+LAMBDAS:
+  let doble   = \x -> x * 2;
+  let sumar   = \x -> x + 1;
+
+OPERADOR PIPE:
+  5 |> doble |> sumar    // = sumar(doble(5)) = 11
+
+CONDICIONALES:
+  if (x > 0) { return "pos"; }
+  else if (x < 0) { return "neg"; }
+  else { return "cero"; }
+
+BUCLES:
+  for i in range(10) { mostrar(i); }
+  for item in [1, 2, 3] { mostrar(item); }
+  while (condicion) { ... }
+
+NAMESPACES:
+  Tensordoz.dot(A, B)
+  Mathdoz.sqrt(2)
+  Metricsdoz.mse(y_real, y_pred)
+  Optimdoz.sgd(params, grads, 0.01)
+  NNdoz.linear_init(4, 8)
+  Datadoz.from_lists(X, Y)
+  Inspectdoz.spy(tensor)
+
+OPERADORES LÓGICOS:
+  not true          // False
+  true && false     // False
+  false || true     // True
+
+TIPOS DE DATOS:
+  Número:   42,  3.14,  -0.5
+  String:   "hola"
+  Bool:     true, false
+  Lista:    [1, 2, 3],  [[1,2],[3,4]]  (vectores y matrices)
+  Dict:     {nombre: "TREZ", version: 2}
+  Queue:    Queue().enqueue(1).enqueue(2)
+  Stack:    Stack().push(10).push(20)
+
+
+================================================================================
+  PARTE 7: LAS LIBRERÍAS — EXPLICACIÓN DETALLADA
+================================================================================
+
+Todas las librerías de TREZ tienen el sufijo "doz" por convención del proyecto.
+Ninguna usa NumPy, PyTorch, math de Python ni ninguna librería externa de
+cómputo. Solo usa `random` de Python para inicialización de pesos.
+
+──────────────────────────────────────────────────────────────────────────────
+  MATHDOZ  (src/lib/mathdoz/core_mathdoz.py)
+──────────────────────────────────────────────────────────────────────────────
+
+  Constantes: PI = 3.14159..., E = 2.71828...
+
+  Funciones:
+    abs_doz(x)        → valor absoluto
+    pow_doz(b, e)     → potencia (iterativa para enteros, exp(e·log(b)) para float)
+    factorial_doz(n)  → producto iterativo n!
+    sqrt_doz(x)       → raíz cuadrada por Newton-Raphson (20 iteraciones)
+    exp_doz(x)        → e^x por serie de Maclaurin: Σ xⁿ/n! (30 términos)
+    log_doz(x)        → ln(x) por serie de Mercator con reducción de rango
+    sin_doz(x)        → serie de Taylor (20 términos) con reducción de período
+    cos_doz(x)        → igual que sin, desfasado π/2
+    tan_doz(x)        → sin/cos
+
+  En TREZ:  sqrt(16), Mathdoz.exp(2), Mathdoz.log(E)
+
+──────────────────────────────────────────────────────────────────────────────
+  TENSORDOZ  (src/lib/mathdoz/tensor_mathdoz.py)
+──────────────────────────────────────────────────────────────────────────────
+
+  dot(a, b):
+    - escalar × escalar → escalar
+    - vector · vector   → escalar (producto punto: Σ aᵢbᵢ)
+    - matriz × vector   → vector
+    - matriz × matriz   → matriz (multiplicación estándar O(n³))
+    Lanza ShapeMismatchError si las dimensiones no son compatibles.
+
+  transpose(m):
+    Traspone una matriz 2D. Devuelve nueva matriz, no muta la original.
+    Resultado[i][j] = original[j][i]
+
+  En TREZ:  Tensordoz.dot(W, x), Tensordoz.transpose(M)
+
+──────────────────────────────────────────────────────────────────────────────
+  ACTIVATIONSDOZ  (src/lib/activationsdoz/activationsdoz.py)
+──────────────────────────────────────────────────────────────────────────────
+
+  relu(x):
+    max(0, x) elemento a elemento.
+    Si x es lista, aplica a cada elemento (vectorial).
+    Usa exp_doz para el gradiente implícito.
+
+  sigmoid(x):
+    1 / (1 + e^(-x)) elemento a elemento.
+    Squash cualquier número al rango (0, 1).
+
+  En TREZ:  relu([-1, 0, 5]), sigmoid(0)
+            Mathdoz.relu(-3), Mathdoz.sigmoid(0.5)
+
+──────────────────────────────────────────────────────────────────────────────
+  LOSSESDOZ / METRICSDOZ  (src/lib/lossesdoz/lossdoz.py)
+──────────────────────────────────────────────────────────────────────────────
+
+  mse(y_true, y_pred):
+    Error Cuadrático Medio: Σ(pred - real)² / N
+    Mide qué tan lejos están las predicciones de los valores reales.
+
+  mse_grad(y_true, y_pred):
+    Gradiente del MSE: 2*(pred - real) / N
+    Indica en qué dirección y cuánto ajustar cada predicción.
+
+  cross_entropy(logits, targets):
+    Pérdida para clasificación multiclase. Aplica softmax internamente
+    (numéricamente estable: sustrae el máximo antes de exp para evitar
+    overflow). Retorna el promedio del log-likelihood negativo:
+      -Σ log(softmax(logit)[clase_correcta]) / batch_size
+
+  cross_entropy_grad(logits, targets):
+    Gradiente de cross_entropy respecto a logits:
+      grad[i][j] = softmax(logit[i])[j] - 1(j == target[i])
+    La clase correcta recibe gradiente negativo (queremos subirla).
+    Las clases incorrectas reciben gradiente positivo (queremos bajarlas).
+
+  En TREZ:  Metricsdoz.mse(y_real, y_pred)
+            Metricsdoz.cross_entropy(logits, targets)
+
+──────────────────────────────────────────────────────────────────────────────
+  OPTIMDOZ  (src/lib/optimdoz/optimdoz.py)
+──────────────────────────────────────────────────────────────────────────────
+
+  sgd(params, grads, lr):
+    Descenso de gradiente estocástico. Fórmula:
+      param_nuevo = param - lr * grad
+    'params' y 'grads' son listas de tensores (listas de listas).
+    Retorna la lista de parámetros actualizados.
+
+  adam(params, grads, m, v, t, lr):
+    Optimizador Adam (Adaptive Moment Estimation). Más avanzado que SGD.
+    Mantiene dos estadísticos por parámetro:
+      m = estimador de primer momento (media de gradientes)
+      v = estimador de segundo momento (varianza de gradientes)
+    Fórmulas con corrección de bias:
+      m_t = β₁*m_{t-1} + (1-β₁)*grad
+      v_t = β₂*v_{t-1} + (1-β₂)*grad²
+      m̂ = m_t / (1 - β₁^t)         ← corrección de bias
+      v̂ = v_t / (1 - β₂^t)
+      param = param - lr * m̂ / (√v̂ + ε)
+    Retorna [params_nuevos, m_nuevo, v_nuevo] (estilo funcional de TREZ).
+
+  zeros_like(data):
+    Crea estructura de ceros con la misma forma que 'data'.
+    Útil para inicializar m y v antes del primer paso de Adam.
+
+  ¿Por qué Adam es mejor que SGD?
+    SGD usa el mismo lr para todos los parámetros. Adam adapta el lr
+    para cada parámetro según su historial de gradientes: parámetros
+    con gradientes grandes/ruidosos reciben lr efectivo menor.
+
+  En TREZ:  Optimdoz.sgd(params, grads, 0.01)
+            Optimdoz.adam(params, grads, m, v, t, 0.001)
+
+──────────────────────────────────────────────────────────────────────────────
+  NNDOZ  (src/lib/nndoz/nndoz.py)
+──────────────────────────────────────────────────────────────────────────────
+
+  linear_init(in_features, out_features):
+    Crea una capa densa. Inicializa pesos con Xavier/Glorot:
+      limit = sqrt(6 / (in + out))
+      W ∼ Uniform(-limit, +limit)
+    Xavier evita que la señal explote o desaparezca al pasar por capas.
+    Retorna dict {type, W, b, in, out}.
+
+  linear_forward(layer, x):
+    Forward pass: salida = x @ W + b
+    x es (batch, in_features), salida es (batch, out_features).
+
+  linear_backward(layer, x, grad_out):
+    Backward pass — calcula gradientes para W, b y x:
+      grad_W = x.T @ grad_out      (para actualizar pesos)
+      grad_b = sum(grad_out, axis=0)
+      grad_x = grad_out @ W.T      (para propagar hacia atrás)
+
+  relu_forward(x):
+    Aplica ReLU y guarda una máscara binaria (1 donde x>0, 0 donde x≤0).
+    Retorna [salida, máscara]. La máscara se necesita para backward.
+
+  relu_backward(mask, grad_out):
+    Propaga el gradiente: solo pasa donde la máscara es 1.
+    Donde x≤0 en el forward, el gradiente se corta (=0).
+
+  softmax_forward(x):
+    Softmax numericamente estable por fila:
+      softmax[i] = exp(x[i] - max(x)) / Σ exp(x[j] - max(x))
+    Convierte logits en distribución de probabilidades (suman 1).
+
+  sequential_forward(layers, x):
+    Pasa x por una lista de capas en orden (linear, relu, softmax).
+
+  En TREZ:  NNdoz.linear_init(4, 8)
+            NNdoz.linear_forward(capa, x)
+            NNdoz.softmax(logits)
+
+──────────────────────────────────────────────────────────────────────────────
+  DATADOZ  (src/lib/datadoz/datadoz.py)
+──────────────────────────────────────────────────────────────────────────────
+
+  from_lists(X, Y):
+    Crea un dataset a partir de dos listas (features y labels).
+
+  make_loader(dataset, batch_size, shuffle):
+    Crea un DataLoader que itera el dataset en mini-batches.
+    Si shuffle=true, mezcla aleatoriamente antes de cada época.
+
+  get_batches(loader):
+    Retorna todos los batches como lista de pares [batch_x, batch_y].
+    Cada batch_x es (batch_size, n_features).
+
+  train_test_split(X, Y, test_ratio):
+    Divide aleatoriamente en entrenamiento y prueba.
+    Retorna [X_train, Y_train, X_test, Y_test].
+
+  En TREZ:  Datadoz.from_lists(X, Y)
+            Datadoz.make_loader(ds, 32, true)
+            Datadoz.get_batches(loader)
+
+──────────────────────────────────────────────────────────────────────────────
+  STRUCTSDOZ  (src/lib/structsdoz/structsdoz.py)
+──────────────────────────────────────────────────────────────────────────────
+
+  TrezQueue — cola FIFO (First In, First Out):
+    enqueue(v) → nueva cola con v al final
+    dequeue()  → [valor_frontal, cola_restante]
+    peek()     → valor frontal sin remover
+    isEmpty(), size(), toList()
+
+  TrezStack — pila LIFO (Last In, First Out):
+    push(v) → nueva pila con v encima
+    pop()   → [valor_tope, pila_restante]
+    peek()  → valor tope sin remover
+    isEmpty(), size(), toList()
+
+  Todas las operaciones retornan NUEVAS instancias (inmutabilidad funcional).
+
+  En TREZ:  Queue().enqueue(1).enqueue(2)
+            Stack().push(10).push(20)
+
+──────────────────────────────────────────────────────────────────────────────
+  IODOZ  (src/lib/iodoz/iodoz.py)
+──────────────────────────────────────────────────────────────────────────────
+
+  leer(ruta)              → retorna contenido del archivo como string
+  escribir(ruta, texto)   → escribe texto en archivo (retorna True)
+
+  En TREZ:  IOdoz.leer("datos.csv"),  IOdoz.escribir("out.txt", "hola")
+            O globales: leer("datos.csv"), escribir("out.txt", "hola")
+
+──────────────────────────────────────────────────────────────────────────────
+  INSPECTDOZ  (src/lib/inspectdoz/inspectdoz.py)
+──────────────────────────────────────────────────────────────────────────────
+
+  spy(tensor)    → imprime "[spy] tensor" y RETORNA el tensor sin modificarlo
+  shape(tensor)  → imprime "[shape] dims" y retorna lista de dimensiones
+
+  Útil para depurar sin romper pipelines:
+    datos |> \x -> Inspectdoz.spy(x) |> relu
+    // spy imprime los datos pero los pasa sin modificar
+
+
+================================================================================
+  PARTE 8: PREGUNTAS TÍPICAS DEL PROFESOR — CON RESPUESTAS
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────
+  PREGUNTA 1 (del profesor en entrega pasada):
+  "Cambia algo en el código para que cuando haces una división y sale
+   un número decimal, aparezcan exactamente 4 números después del punto."
+────────────────────────────────────────────────────────────────────────────
+
+  RESPUESTA:
+  El lugar donde se imprime cualquier valor en TREZ es la función
+  'mostrar()' en src/visitor.py. Hay que buscar cómo se formatea la
+  salida de números flotantes.
+
+  DÓNDE MIRAR: src/visitor.py, función visitExpr_stmt o la función
+  que llama a print(). Busca la parte donde el visitor imprime resultados.
+
+  CAMBIO A HACER:
+  Encontrar en visitor.py donde se llama a mostrar() o print(), y cambiar
+  el formato de números float. Algo como:
+
+    # Antes (imprime todos los decimales):
+    print(value)
+
+    # Después (imprime exactamente 4 decimales para floats):
+    if isinstance(value, float):
+        print(f"{value:.4f}")
+    else:
+        print(value)
+
+  EJEMPLO del efecto:
+    Antes:  10 / 3  →  3.3333333333333335
+    Después: 10 / 3  →  3.3333
+
+  VARIANTE: si el profesor pide que sea configurable, se puede agregar
+  una variable global DECIMALES = 4 en visitor.py.
+
+  ¿POR QUÉ AHÍ Y NO EN OTRO LADO?
+  Porque el visitor es el intérprete — es quien evalúa cada expresión y
+  decide qué hacer con el resultado. El lexer y el parser no saben de
+  decimales; solo tokenizán y construyen el árbol.
+
+────────────────────────────────────────────────────────────────────────────
+  PREGUNTA 2: "¿Cómo agregarías el operador módulo % al lenguaje?"
+────────────────────────────────────────────────────────────────────────────
+
+  RESPUESTA: Ya está implementado. En TREZ: 10 % 3 → 1
+
+  Si NO estuviera, los pasos serían:
+  1. TrezLexer.g4: agregar  MOD: '%';
+  2. TrezParser.g4: agregar MOD en la regla mulDivExpr
+     (misma precedencia que * y /)
+  3. visitor.py, visitMulDivExpr: agregar caso '%'
+     if op == '%': return left % right
+  4. Regenerar el parser con ANTLR4: java -jar antlr4.jar TrezLexer.g4 ...
+
+────────────────────────────────────────────────────────────────────────────
+  PREGUNTA 3: "¿Qué hace el patrón Visitor aquí? ¿Por qué no usar un
+               switch o if-elif gigante?"
+────────────────────────────────────────────────────────────────────────────
+
+  RESPUESTA:
+  El patrón Visitor separa el árbol (estructura) de las operaciones.
+
+  Con if-elif habría una función enorme tipo:
+    def evaluar(nodo):
+        if tipo == "suma": ...
+        elif tipo == "resta": ...
+        elif tipo == "if": ...
+        # 50 casos más...
+
+  Con Visitor:
+    - Cada nodo sabe "acéptame" (accept/visit dispatch automático)
+    - Cada operación es un método separado: visitAddSubExpr, visitIfStmt...
+    - Agregar un nuevo nodo = agregar un método. No tocar los demás.
+    - Agregar una nueva operación (ej: un optimizador de AST) = nueva
+      clase Visitor. No tocar el AST ni el evaluador existente.
+
+  En TREZ: ANTLR4 genera el dispatch automáticamente. TrezVisitor
+  solo sobrescribe los métodos que necesita.
+
+────────────────────────────────────────────────────────────────────────────
+  PREGUNTA 4: "¿Cómo funciona el scope (entorno de variables) en TREZ?"
+────────────────────────────────────────────────────────────────────────────
+
+  RESPUESTA:
+  El entorno es una cadena enlazada de diccionarios (clase Environment
+  en visitor.py). Funciona así:
+
+    - Cada bloque (función, if, for, while) crea un scope HIJO.
+    - Cuando buscas una variable, primero la buscas en el scope actual.
+    - Si no está, subes al padre, luego al abuelo, etc. (lookup funcional).
+    - 'let x = 10' define x en el scope actual.
+    - Las funciones capturan el scope donde fueron DEFINIDAS (closure),
+      no donde son llamadas.
+
+  Ejemplo:
+    let x = 1;          // scope global: x=1
+    func f() {
+        let x = 2;      // scope de f: x=2 (oculta el global)
+        return x;       // busca x → encuentra 2 en scope local
+    }
+    mostrar(f());  // 2
+    mostrar(x);    // 1  (el global no cambió)
+
+────────────────────────────────────────────────────────────────────────────
+  PREGUNTA 5: "¿Por qué no usan NumPy para las matrices?"
+────────────────────────────────────────────────────────────────────────────
+
+  RESPUESTA:
+  Es una decisión de diseño deliberada. El objetivo del proyecto es
+  demostrar que se puede construir un lenguaje con su propio motor de
+  cómputo. Si usáramos NumPy, el lenguaje sería solo un wrapper de NumPy.
+
+  Al implementarlo en Python puro:
+    - Entendemos exactamente cómo funciona el producto matricial.
+    - No hay dependencias invisibles.
+    - Es portátil (solo necesita Python).
+    - Demuestra comprensión real del álgebra lineal.
+
+  El costo: es más lento que NumPy para matrices grandes. Eso es
+  aceptable para un proyecto académico.
+
+────────────────────────────────────────────────────────────────────────────
+  PREGUNTA 6: "¿Qué pasa si el usuario escribe código inválido en TREZ?"
+────────────────────────────────────────────────────────────────────────────
+
+  RESPUESTA: Hay dos niveles de error.
+
+  1. ERROR DE SINTAXIS (en tiempo de parsing):
+     TrezErrorListener captura errores de ANTLR4 y lanza TrezSyntaxError
+     con línea, columna y token inesperado.
+     Ejemplo: "let x = ;" → "Error sintáctico línea 1:8 token ';'"
+
+  2. ERROR DE EJECUCIÓN (en tiempo de evaluación):
+     El visitor lanza errores específicos:
+     - UndefinedSymbolError: variable no definida
+     - ShapeMismatchError: dot([1,2,3], [1,2]) → dimensiones incompatibles
+     - MathDomainError: sqrt(-1) o log(0)
+     - TrezRuntimeError: índice fuera de rango, dequeue en queue vacía, etc.
+
+────────────────────────────────────────────────────────────────────────────
+  PREGUNTA 7: "¿Cómo agregarías un nuevo tipo de dato, por ejemplo un
+               número complejo?"
+────────────────────────────────────────────────────────────────────────────
+
+  RESPUESTA (los pasos generales):
+  1. Lexer: agregar token para la parte imaginaria, ej: NUMBER 'i'
+  2. Parser: nueva regla complexExpr : NUMBER PLUS NUMBER 'i'
+  3. Crear clase TrezComplex en visitor.py
+  4. visitComplexExpr: retorna TrezComplex(real, imag)
+  5. Modificar visitAddSubExpr, visitMulDivExpr para manejar TrezComplex
+  6. Agregar ComplexMath a la stdlib si se quiere modulo de complejos, etc.
+
+  Este es el proceso general para cualquier extensión del lenguaje.
+
+────────────────────────────────────────────────────────────────────────────
+  PREGUNTA 8: "¿Qué es el operador pipe |> y por qué lo pusieron?"
+────────────────────────────────────────────────────────────────────────────
+
+  RESPUESTA:
+  El pipe viene de lenguajes funcionales como F#, Elixir y Haskell (|>).
+  "a |> f" significa "aplicar f a a". Es azúcar sintáctica para "f(a)".
+
+  ¿Por qué? Hace que los pipelines de transformación sean legibles:
+
+    Sin pipe:  softmax(relu(linear_forward(capa, normalizar(datos))))
+    Con pipe:  datos |> normalizar |> \x -> linear_forward(capa, x)
+               |> relu |> softmax
+
+  Se lee de izquierda a derecha, en el orden en que ocurren.
+  Tiene la menor precedencia de todos los operadores, así:
+    "a + b |> f" se evalúa como "f(a + b)", no "a + f(b)".
+
+────────────────────────────────────────────────────────────────────────────
+  PREGUNTA 9: "¿Cómo entrenarías una red neuronal completamente en TREZ?"
+────────────────────────────────────────────────────────────────────────────
+
+  RESPUESTA:
+  Con las librerías de Entregas 3 y 4, el loop de entrenamiento en TREZ
+  se vería así:
+
+    let capa1 = NNdoz.linear_init(4, 8);
+    let capa2 = NNdoz.linear_init(8, 3);
+    let m = Optimdoz.zeros_like(NNdoz.get_params([capa1, capa2]));
+    let v = m;
+    let t = 0;
+
+    for epoch in range(100) {
+        // Forward pass
+        let h1 = NNdoz.relu_forward(NNdoz.linear_forward(capa1, X))[0];
+        let out = NNdoz.softmax(NNdoz.linear_forward(capa2, h1));
+
+        // Calcular pérdida
+        let loss = Metricsdoz.cross_entropy(out, Y);
+        mostrar(loss);
+
+        // Backward + actualización
+        let grad = Metricsdoz.cross_entropy_grad(out, Y);
+        let t = t + 1;
+        let result = Optimdoz.adam(NNdoz.get_params([capa1, capa2]),
+                                   [grad], m, v, t, 0.001);
+        // ... actualizar capa1 y capa2 con los nuevos parámetros
+    }
+
+
+================================================================================
+  PARTE 9: ESTRUCTURA DE ARCHIVOS — MAPA COMPLETO
+================================================================================
+
+TREZ/
+├── README.md                    Introducción y uso rápido
+├── Design.md                    Arquitectura detallada y hoja de ruta
+├── entrega.txt                  Análisis de cumplimiento Entregas 1 y 2
+├── guia_sustentacion.txt        Este archivo
+│
+├── src/
+│   ├── main.py                  Punto de entrada: lexer→parser→visitor
+│   ├── visitor.py               TrezVisitor — evalúa el AST
+│   ├── autograd.py              Tensor con backprop para matrices
+│   ├── errors.py                Jerarquía de errores de TREZ
+│   ├── error_listener.py        Captura errores de ANTLR4
+│   ├── math_utilsdoz.py         Re-exporta stdlib al visitor
+│   │
+│   ├── parser/
+│   │   ├── TrezLexer.g4         Gramática léxica (define los tokens)
+│   │   ├── TrezParser.g4        Gramática sintáctica (CFG Tipo 2)
+│   │   ├── TrezLexer.py         Generado por ANTLR4 (no editar)
+│   │   ├── TrezParser.py        Generado por ANTLR4 (no editar)
+│   │   └── TrezParserVisitor.py Interfaz base Visitor (no editar)
+│   │
+│   └── lib/
+│       ├── mathdoz/             PI, E, sqrt, exp, log, sin, cos, tan, pow
+│       ├── activationsdoz/      relu, sigmoid
+│       ├── lossesdoz/           mse, mse_grad, cross_entropy, cross_entropy_grad
+│       ├── optimdoz/            sgd, adam, zeros_like
+│       ├── nndoz/               linear_init/forward/backward, relu, softmax
+│       ├── datadoz/             from_lists, make_loader, get_batches, split
+│       ├── iodoz/               leer, escribir
+│       ├── inspectdoz/          spy, shape
+│       └── structsdoz/          TrezQueue, TrezStack
+│
+└── tests/
+    ├── run_tests.py             Ejecuta todos y compara con .expected
+    ├── features/
+    │   ├── test_basic.trez      Aritmética básica
+    │   ├── test_math.trez       Mathdoz completo
+    │   ├── test_dl.trez         Tensordoz + Metricsdoz + activaciones
+    │   ├── test_backprop.trez   MSE, CrossEntropy, actualización de pesos
+    │   ├── test_functions.trez  Funciones, recursión, closures
+    │   ├── test_control_flow.trez if/else/for/while/not/&&/||
+    │   ├── test_lists.trez      Listas, acceso, métodos, matrices
+    │   ├── test_dicts.trez      Diccionarios y métodos
+    │   ├── test_structs.trez    Queue y Stack
+    │   ├── test_e2_features.trez pipe, lambdas, namespaces, Inspectdoz
+    │   ├── test_optimdoz.trez   SGD y Adam
+    │   ├── test_metricsdoz.trez MSE, CrossEntropy, gradientes
+    │   ├── test_nndoz.trez      Capas lineales, ReLU, Softmax
+    │   └── test_datadoz.trez    Datasets, batching, train/test split
+    ├── runtime/                 Tests de errores en ejecución
+    └── syntax/                  Tests de errores de sintaxis
+
+
+================================================================================
+  PARTE 10: CÓMO EJECUTAR TREZ
+================================================================================
+
+  Requisitos:
+    - Python 3.10 o superior
+    - antlr4-python3-runtime==4.13.2
+      (instalar: pip install antlr4-python3-runtime==4.13.2)
+
+  Ejecutar un archivo:
+    cd TREZ/src
+    python3 main.py ../tests/features/test_basic.trez
+
+  Ejecutar todos los tests:
+    cd TREZ
+    python3 tests/run_tests.py
+
+  Regenerar .expected (cuando cambias algo):
+    python3 tests/run_tests.py --update
+
+  Si el parser necesita regenerarse (cambios en .g4):
+    cd src/parser
+    java -jar antlr4.jar -Dlanguage=Python3 -visitor TrezLexer.g4
+    java -jar antlr4.jar -Dlanguage=Python3 -visitor TrezParser.g4
+
+
+================================================================================
+  RESUMEN FINAL — LO QUE HAY QUE SABER DE MEMORIA
+================================================================================
+
+  1. TREZ es un DSL funcional para Deep Learning, hecho desde cero.
+  2. Usa ANTLR4 para lexing y parsing (gramática CFG Tipo 2).
+  3. El intérprete usa el patrón Visitor sobre el AST.
+  4. Paradigma funcional: let inmutable, funciones puras, pipe |>, lambdas.
+  5. Toda la matemática es propia: sin NumPy, sin math de Python.
+  6. Para cambiar formato de decimales: modificar visitor.py donde se imprime.
+  7. Para agregar operador: 1) token en Lexer, 2) regla en Parser,
+     3) visitX() en visitor.py, 4) regenerar parser.
+  8. Los tests se ejecutan con: python3 tests/run_tests.py
+
+================================================================================

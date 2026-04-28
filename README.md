@@ -90,16 +90,17 @@ mostrar(d["nombre"]);
 
 Todos los módulos están implementados en Python puro — ninguna función llama a librería externa.
 
-| Módulo | Funciones disponibles |
-|---|---|
-| `Mathdoz` / global | `relu`, `sigmoid`, `exp`, `log`, `sin`, `cos`, `tan`, `sqrt`, `pow`, `abs`, `factorial`; constantes `PI`, `E` |
-| `Tensordoz` | `dot`, `transpose` *(reshape, flatten, add, concat — E3)* |
-| `Metricsdoz` | `mse`, `mse_grad` *(cross_entropy, accuracy, rmse — E3)* |
-| `IOdoz` | `leer`, `escribir` *(read_csv — E3)* |
-| `Inspectdoz` | `spy`, `shape` |
-| `Optimdoz` | SGD, Adam *(E3)* |
-| `Structsdoz` | `Queue`, `Stack` |
-| `Plotdoz` | learning_curve, histogram *(Entrega Final)* |
+| Módulo | Funciones disponibles | Estado |
+|---|---|---|
+| `Mathdoz` / global | `relu`, `sigmoid`, `exp`, `log`, `sin`, `cos`, `tan`, `sqrt`, `pow`, `abs`, `factorial`; constantes `PI`, `E` | ✅ |
+| `Tensordoz` | `dot`, `transpose` *(reshape, flatten, add, concat — E3)* | ✅ parcial |
+| `Activationsdoz` | `relu`, `sigmoid` (elemento a elemento) | ✅ |
+| `Metricsdoz` | `mse`, `mse_grad` *(cross_entropy, accuracy, rmse — E3)* | ✅ parcial |
+| `IOdoz` | `leer`, `escribir` *(read_csv — E3)* | ✅ parcial |
+| `Inspectdoz` | `spy`, `shape` | ✅ |
+| `Structsdoz` | `Queue`, `Stack` | ✅ |
+| `Optimdoz` | SGD, Adam *(E3)* | ⏳ Pendiente |
+| `Plotdoz` | learning_curve, histogram *(Entrega Final)* | ⏳ Pendiente |
 
 ---
 
@@ -148,9 +149,9 @@ TREZ/
 
 | Entrega | Objetivo | Estado |
 |---|---|---|
-| Entrega 1 | Aritmetica basica, arrays, variables, funciones nativas, errores | Completa |
-| **Entrega 2** | Pipe `\|>`, lambdas `\x ->`, namespaces `Modulo.func()`, `let [a,b] = expr`, `Inspectdoz` | **En curso** |
-| Entrega 3 | `Tensordoz` completo (reshape/flatten/add/concat), `Optimdoz` (SGD/Adam), `Metricsdoz` completo, `IOdoz.read_csv` | Pendiente |
+| Entrega 1 | Aritmetica basica, arrays, variables, funciones nativas, errores | ✅ Completa |
+| Entrega 2 | Pipe `\|>`, lambdas `\x ->`, namespaces `Modulo.func()`, `let [a,b] = expr`, `Inspectdoz`, funciones, closures, recursion, condicionales, bucles, dicts, Queue, Stack | ✅ Completa |
+| **Entrega 3** | `Tensordoz` completo (reshape/flatten/add/concat), `Optimdoz` (SGD/Adam), `Metricsdoz` completo, `IOdoz.read_csv` | **Pendiente** |
 | Entrega 4 | MLP entrenable en TREZ + suite con dataset CSV real | Pendiente |
 | Entrega Final | Autoencoder + `Plotdoz.learning_curve` + documentación completa | Pendiente |
 

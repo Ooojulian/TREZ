@@ -96,7 +96,7 @@ La stdlib se invoca como `Modulo.funcion(args)` para hacer explícito el origen 
 
 ## 4. Gramática (CFG Tipo 2 — ANTLR4)
 
-### 4.1 Estado Actual — Entrega 2
+### 4.1 Estado Actual — Entregas 1 y 2 (Completas)
 
 ```antlr
 // TrezLexer.g4
@@ -233,19 +233,19 @@ TrezError (base)
 - [x] Stdlib: `Mathdoz` completo, `Tensordoz` (dot+transpose), `Metricsdoz` (mse+mse_grad), `IOdoz` (leer/escribir)
 - [x] `autograd.py` adelantado: grafo computacional + backprop topológico
 
-### Entrega 2 — En curso
+### Entrega 2 — Completa
 
 - [x] Funciones con nombre (`func`/`return`), recursión, closures
 - [x] Condicionales encadenados (`else if`), `for..in`, `not`, `while`
 - [x] Diccionarios, acceso por índice `[]`, métodos `.metodo()`
 - [x] `Queue` y `Stack` nativos (`structsdoz`)
 - [x] `range()`, `len()`, `append()`, `head()`, `tail()`, `str()`, `num()`
-- [ ] Operador pipe `|>` (`pipeOp` en gramática + `visitPipeOp`)
-- [ ] Lambdas anónimas `\x -> expr` (`lambdaDef` + `TrezLambda`)
-- [ ] Namespaces `Modulo.func()` (`moduleCall` — separado de `methodCall`)
-- [ ] Desestructuración de tuplas `let [a, b] = expr` (`bind_tuple`)
-- [ ] `Inspectdoz`: `spy()`, `shape()`
-- [ ] `UndefinedSymbolError` diferenciado
+- [x] Operador pipe `|>` (`visitPipeOp` en `visitor.py`)
+- [x] Lambdas anónimas `\x -> expr` (`visitLambdaDef` + `TrezLambda`)
+- [x] Namespaces `Modulo.func()` (`visitMethodCallExpr` + `_NAMESPACES`)
+- [x] Desestructuración de tuplas `let [a, b] = expr` (`visitBind_tuple`)
+- [x] `Inspectdoz`: `spy()`, `shape()`
+- [x] `UndefinedSymbolError` diferenciado
 
 ### Entrega 3
 
@@ -298,8 +298,10 @@ TREZ/
 │       │   └── lossdoz.py           mse, mse_grad
 │       ├── iodoz/
 │       │   └── iodoz.py             leer, escribir
-│       └── structsdoz/
-│           └── structsdoz.py        TrezQueue, TrezStack
+│       ├── structsdoz/
+│       │   └── structsdoz.py        TrezQueue, TrezStack
+│       └── inspectdoz/
+│           └── inspectdoz.py        spy, shape
 └── tests/
     ├── features/
     │   ├── test_basic.trez
@@ -307,11 +309,21 @@ TREZ/
     │   ├── test_dl.trez
     │   ├── test_backprop.trez
     │   ├── test_io.trez
+    │   ├── test_e2_features.trez    pipe, lambdas, namespaces, dicts, structs
+    │   ├── test_functions.trez
+    │   ├── test_lists.trez
+    │   ├── test_control_flow.trez
+    │   ├── test_dicts.trez
+    │   ├── test_structs.trez
     │   └── test_new_features.trez
     ├── runtime/
-    │   └── test_runtime_error.trez
-    └── syntax/
-        └── test_syntax_error.trez
+    │   ├── test_runtime_error.trez
+    │   └── test_runtime_errors.trez
+    ├── syntax/
+    │   └── test_syntax_error.trez
+    ├── run_tests.py
+    ├── test_mathdoz_verification.py
+    └── test_structs_verification.py
 ```
 
 ---
