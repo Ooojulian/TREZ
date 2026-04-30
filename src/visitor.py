@@ -27,6 +27,20 @@ from lib.datadoz.datadoz import (
     make_loader as datadoz_loader,
     get_batches as datadoz_batches,
     train_test_split as datadoz_split,
+    read_csv as datadoz_read_csv,
+    read_xlsx as datadoz_read_xlsx,
+    get_column as datadoz_col,
+    get_row as datadoz_row,
+    num_rows as datadoz_nrows,
+    num_cols as datadoz_ncols,
+    column_names as datadoz_col_names,
+)
+from lib.plotdoz.plotdoz import (
+    learning_curve as plotdoz_learning_curve,
+    histogram as plotdoz_histogram,
+    bar_chart as plotdoz_bar,
+    scatter as plotdoz_scatter,
+    line_chart as plotdoz_line,
 )
 
 
@@ -85,6 +99,20 @@ _NAMESPACES = {
         'make_loader':       lambda args: datadoz_loader(args[0], int(args[1]), bool(args[2]) if len(args) > 2 else False),
         'get_batches':       lambda args: datadoz_batches(args[0]),
         'train_test_split':  lambda args: datadoz_split(args[0], args[1], args[2] if len(args) > 2 else 0.2),
+        'read_csv':          lambda args: datadoz_read_csv(args[0], args[1] if len(args) > 1 else ','),
+        'read_xlsx':         lambda args: datadoz_read_xlsx(args[0]),
+        'columna':           lambda args: datadoz_col(args[0], args[1]),
+        'fila':              lambda args: datadoz_row(args[0], int(args[1])),
+        'num_filas':         lambda args: datadoz_nrows(args[0]),
+        'num_columnas':      lambda args: datadoz_ncols(args[0]),
+        'columnas':          lambda args: datadoz_col_names(args[0]),
+    },
+    'Plotdoz': {
+        'learning_curve': lambda args: plotdoz_learning_curve(args[0], args[1] if len(args) > 1 else None, *args[2:]),
+        'histogram':      lambda args: plotdoz_histogram(args[0], *args[1:]),
+        'bar_chart':      lambda args: plotdoz_bar(args[0], args[1], *args[2:]),
+        'scatter':        lambda args: plotdoz_scatter(args[0], args[1], *args[2:]),
+        'line_chart':     lambda args: plotdoz_line(args[0], args[1], *args[2:]),
     },
 }
 

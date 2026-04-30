@@ -96,11 +96,12 @@ Todos los módulos están implementados en Python puro — ninguna función llam
 | `Tensordoz` | `dot`, `transpose` *(reshape, flatten, add, concat — E3)* | ✅ parcial |
 | `Activationsdoz` | `relu`, `sigmoid` (elemento a elemento) | ✅ |
 | `Metricsdoz` | `mse`, `mse_grad` *(cross_entropy, accuracy, rmse — E3)* | ✅ parcial |
-| `IOdoz` | `leer`, `escribir` *(read_csv — E3)* | ✅ parcial |
+| `IOdoz` | `leer`, `escribir` | ✅ |
+| `Datadoz` | `from_lists`, `make_loader`, `get_batches`, `train_test_split`, `read_csv`, `read_xlsx`, `columna`, `fila`, `num_filas`, `num_columnas`, `columnas` | ✅ |
+| `Plotdoz` | `learning_curve`, `histogram`, `bar_chart`, `scatter`, `line_chart` | ✅ |
 | `Inspectdoz` | `spy`, `shape` | ✅ |
 | `Structsdoz` | `Queue`, `Stack` | ✅ |
-| `Optimdoz` | SGD, Adam *(E3)* | ⏳ Pendiente |
-| `Plotdoz` | learning_curve, histogram *(Entrega Final)* | ⏳ Pendiente |
+| `Optimdoz` | SGD, Adam | ✅ |
 
 ---
 
@@ -126,8 +127,13 @@ TREZ/
 │   └── lib/
 │       ├── mathdoz/             # core_mathdoz.py + tensor_mathdoz.py
 │       ├── activationsdoz/      # relu, sigmoid
-│       ├── lossesdoz/           # mse, mse_grad
+│       ├── lossesdoz/           # mse, mse_grad, cross_entropy
+│       ├── optimdoz/            # sgd, adam, zeros_like
+│       ├── nndoz/               # linear_init/forward/backward, relu, softmax
+│       ├── datadoz/             # from_lists, loader, read_csv, read_xlsx, columna, fila
+│       ├── plotdoz/             # learning_curve, histogram, bar_chart, scatter, line_chart
 │       ├── iodoz/               # leer, escribir
+│       ├── inspectdoz/          # spy, shape
 │       └── structsdoz/          # Queue, Stack
 └── tests/
     ├── features/
@@ -151,7 +157,7 @@ TREZ/
 |---|---|---|
 | Entrega 1 | Aritmetica basica, arrays, variables, funciones nativas, errores | ✅ Completa |
 | Entrega 2 | Pipe `\|>`, lambdas `\x ->`, namespaces `Modulo.func()`, `let [a,b] = expr`, `Inspectdoz`, funciones, closures, recursion, condicionales, bucles, dicts, Queue, Stack | ✅ Completa |
-| **Entrega 3** | `Tensordoz` completo (reshape/flatten/add/concat), `Optimdoz` (SGD/Adam), `Metricsdoz` completo, `IOdoz.read_csv` | **Pendiente** |
+| **Entrega 3** | `Tensordoz` completo (reshape/flatten/add/concat), `Optimdoz` (SGD/Adam), `Metricsdoz` completo, `Datadoz.read_csv`, `Datadoz.read_xlsx`, `Plotdoz` completo | **✅ Completa** |
 | Entrega 4 | MLP entrenable en TREZ + suite con dataset CSV real | Pendiente |
 | Entrega Final | Autoencoder + `Plotdoz.learning_curve` + documentación completa | Pendiente |
 

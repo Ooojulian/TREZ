@@ -428,7 +428,11 @@ class ComputationGraph:
 | ¿Dónde se controla precisión? | `visitExpr_stmt()` print | 29 |
 | ¿Dónde se hallan errores? | `error_listener.py` | - |
 | ¿Dónde está la gramática? | `src/parser/Trez*.py` (ANTLR) | - |
-| ¿Dónde están las funciones math? | `src/lib/math/core.py` | - |
+| ¿Dónde están las funciones math? | `src/lib/mathdoz/core_mathdoz.py` | - |
+| ¿Cómo se lee un Excel en TREZ? | `Datadoz.read_xlsx(ruta)` → `lib/datadoz/datadoz.py` | - |
+| ¿Cómo se lee un CSV en TREZ? | `Datadoz.read_csv(ruta)` → `lib/datadoz/datadoz.py` | - |
+| ¿Cómo se grafíca en TREZ? | `Plotdoz.histogram/bar_chart/scatter/learning_curve()` → `lib/plotdoz/plotdoz.py` | - |
+| ¿Dónde están los namespaces? | `_NAMESPACES` dict en `visitor.py` | ~50 |
 
 ---
 
@@ -496,6 +500,75 @@ class TrezVisitor(AntlrTrezVisitor):
         
         return result
 ```
+
+---
+
+## 9. PREGUNTAS SOBRE DATADOZ Y PLOTDOZ (ENTREGA 3)
+
+### P: "¿Cómo lee TREZ un archivo Excel?"
+
+**R:** Con `Datadoz.read_xlsx(ruta)` definido en `src/lib/datadoz/datadoz.py`.
+
+Internamente usa `openpyxl` para abrir el archivo. La primera fila se toma como cabecera y cada fila de datos se convierte en un `dict {columna: valor}`. El resultado es una lista de dicts accesible desde TREZ.
+
+```trez
+let datos = Datadoz.read_xlsx("../tests/data.xlsx");
+mostrar(Datadoz.num_filas(datos));       // 10280
+mostrar(Datadoz.columnas(datos));        // [id, edad, nivel_edu, ...]
+let edades = Datadoz.columna(datos, "edad");
+```
+
+**¿Por qué en Datadoz y no en IOdoz?**
+IOdoz lee texto plano. Datadoz maneja datos estructurados (tablas). Es una separación de responsabilidades: I/O genérico vs. datos tabulares para ML.
+
+---
+
+### P: "¿Cómo se hacen gráficas en TREZ?"
+
+**R:** Con el módulo `Plotdoz` definido en `src/lib/plotdoz/plotdoz.py`.
+
+Las funciones reciben listas de valores TREZ (que en Python son listas), generan la gráfica con matplotlib en modo `Agg` (sin ventana GUI) y la guardan como PNG.
+
+```trez
+// Histograma de edades del dataset
+Plotdoz.histogram(edades, "Edades", "Edad", "Frecuencia", 30, "hist.png");
+
+// Barras por nivel educativo
+Plotdoz.bar_chart(["Prim.", "Sec.", "Sup."], [2794, 4151, 3335],
+    "Nivel Educativo", "Nivel", "Personas", "barras.png");
+
+// Scatter: edad vs ingreso
+Plotdoz.scatter(edades, ingresos, "Edad vs Ingreso",
+    "Edad", "Ingreso", "steelblue", "scatter.png");
+
+// Curva de entrenamiento (para después de entrenar una red)
+Plotdoz.learning_curve(losses_train, losses_val,
+    "Learning Curve", "Epoch", "Loss", "lc.png");
+```
+
+**¿Plotdoz usa NumPy?** No. Solo matplotlib para dibujar. El cómputo (medias, conteos) se hace en TREZ puro.
+
+---
+
+### P: "¿Cómo está registrado Plotdoz en el visitor?"
+
+**R:** En el diccionario `_NAMESPACES` de `visitor.py`:
+
+```python
+'Plotdoz': {
+    'learning_curve': lambda args: plotdoz_learning_curve(args[0], args[1] if len(args) > 1 else None, *args[2:]),
+    'histogram':      lambda args: plotdoz_histogram(args[0], *args[1:]),
+    'bar_chart':      lambda args: plotdoz_bar(args[0], args[1], *args[2:]),
+    'scatter':        lambda args: plotdoz_scatter(args[0], args[1], *args[2:]),
+    'line_chart':     lambda args: plotdoz_line(args[0], args[1], *args[2:]),
+},
+```
+
+Es el mismo mecanismo que todos los namespaces: `visitMethodCallExpr` detecta que el receptor (`Plotdoz`) está en `_NAMESPACES`, evalúa los argumentos, y despacha la lambda correspondiente.
+
+---
+
+**¡Con estos ejemplos puedes responder cualquier pregunta del profesor sobre la Entrega 3!** 🚀
 
 ---
 

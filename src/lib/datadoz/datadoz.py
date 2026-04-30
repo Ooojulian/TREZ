@@ -4,6 +4,107 @@ import random
 from errors import TrezRuntimeError
 
 
+# ------------------------------------------------------------------
+# Lectura de archivos de datos
+# ------------------------------------------------------------------
+
+def read_csv(filepath, delimiter=','):
+    """
+    Lee un CSV y retorna lista de dicts {columna: valor}.
+    Infiere tipos: intenta int, luego float, si no deja str.
+    """
+    if not isinstance(filepath, str):
+        raise TrezRuntimeError("Datadoz.read_csv(): la ruta debe ser texto.")
+    if not os.path.exists(filepath):
+        raise TrezRuntimeError(f"Datadoz.read_csv(): archivo '{filepath}' no encontrado.")
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            lines = f.read().splitlines()
+    except Exception as e:
+        raise TrezRuntimeError(f"Datadoz.read_csv(): error leyendo '{filepath}': {e}")
+    if not lines:
+        return []
+    headers = [h.strip() for h in lines[0].split(delimiter)]
+    result = []
+    for line in lines[1:]:
+        if not line.strip():
+            continue
+        parts = line.split(delimiter)
+        record = {}
+        for h, v in zip(headers, parts):
+            v = v.strip()
+            try:
+                record[h] = int(v)
+            except ValueError:
+                try:
+                    record[h] = float(v)
+                except ValueError:
+                    record[h] = v
+        result.append(record)
+    return result
+
+
+def read_xlsx(filepath):
+    """
+    Lee un .xlsx y retorna lista de dicts {columna: valor}.
+    La primera fila es cabecera. Requiere openpyxl.
+    """
+    if not isinstance(filepath, str):
+        raise TrezRuntimeError("Datadoz.read_xlsx(): la ruta debe ser texto.")
+    if not os.path.exists(filepath):
+        raise TrezRuntimeError(f"Datadoz.read_xlsx(): archivo '{filepath}' no encontrado.")
+    try:
+        import openpyxl
+    except ImportError:
+        raise TrezRuntimeError("Datadoz.read_xlsx(): openpyxl no instalado. Ejecuta: pip install openpyxl")
+    try:
+        wb = openpyxl.load_workbook(filepath, data_only=True)
+        ws = wb.active
+    except Exception as e:
+        raise TrezRuntimeError(f"Datadoz.read_xlsx(): error abriendo '{filepath}': {e}")
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return []
+    headers = [str(h) if h is not None else f"col{i}" for i, h in enumerate(rows[0])]
+    result = []
+    for row in rows[1:]:
+        record = {}
+        for h, v in zip(headers, row):
+            record[h] = v if v is not None else 0
+        result.append(record)
+    return result
+
+
+def get_column(data, col_name):
+    """Extrae una columna como lista de valores."""
+    if not data:
+        return []
+    if col_name not in data[0]:
+        available = list(data[0].keys())
+        raise TrezRuntimeError(f"Datadoz.columna(): columna '{col_name}' no existe. Disponibles: {available}")
+    return [row[col_name] for row in data]
+
+
+def get_row(data, idx):
+    """Retorna la fila en el índice dado como dict."""
+    idx = int(idx)
+    if idx < 0 or idx >= len(data):
+        raise TrezRuntimeError(f"Datadoz.fila(): índice {idx} fuera de rango (0..{len(data)-1}).")
+    return data[idx]
+
+
+def num_rows(data):
+    return len(data)
+
+
+def num_cols(data):
+    return len(data[0]) if data else 0
+
+
+def column_names(data):
+    return list(data[0].keys()) if data else []
+
+
 class Datadoz:
     """
     Clase base para datasets en TREZ.

@@ -473,11 +473,102 @@ requisito para ambas entregas.
 
 
 ================================================================================
+  ENTREGA 3
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+  REQUISITO: LECTURA DE DATOS REALES (CSV / XLSX)
+────────────────────────────────────────────────────────────────────────────────
+
+  ESTADO: ✅ CUMPLE
+
+  Datadoz absorbe la lectura de archivos de datos estructurados.
+  Ya no se necesita IOdoz.leer() para datos tabulares.
+
+  NUEVAS FUNCIONES EN Datadoz (src/lib/datadoz/datadoz.py):
+
+    read_csv(ruta, delimitador):
+      Lee un CSV y retorna lista de dicts {columna: valor}.
+      Infiere tipos automáticamente: int, float o str.
+      Delimitador configurable (por defecto ',').
+
+    read_xlsx(ruta):
+      Lee un .xlsx y retorna lista de dicts {columna: valor}.
+      La primera fila es la cabecera.
+      Requiere openpyxl (instalación: pip install openpyxl).
+
+    columna(datos, nombre):   extrae columna como lista de valores
+    fila(datos, idx):         retorna fila como dict
+    num_filas(datos):         cantidad de registros
+    num_columnas(datos):      cantidad de columnas
+    columnas(datos):          lista de nombres de columnas
+
+  EVIDENCIA EN TREZ (tests/features/test_xlsx.trez):
+
+    let datos = Datadoz.read_xlsx("../tests/data.xlsx");
+    mostrar(Datadoz.num_filas(datos));          // 10280
+    mostrar(Datadoz.columnas(datos));           // [id, edad, nivel_edu, ...]
+    let edades = Datadoz.columna(datos, "edad");
+    let primera = Datadoz.fila(datos, 0);
+
+────────────────────────────────────────────────────────────────────────────────
+  REQUISITO: VISUALIZACIÓN DE DATOS (Plotdoz)
+────────────────────────────────────────────────────────────────────────────────
+
+  ESTADO: ✅ CUMPLE
+
+  Nuevo módulo Plotdoz (src/lib/plotdoz/plotdoz.py). Genera gráficas PNG.
+  Requiere matplotlib (solo para visualización — el cómputo sigue siendo puro).
+
+  FUNCIONES DISPONIBLES:
+
+    learning_curve(train_losses, val_losses, titulo, xlabel, ylabel, archivo):
+      Gráfica de pérdida por época. val_losses es opcional.
+      Es la visualización central del entrenamiento de una red neuronal.
+
+    histogram(valores, titulo, xlabel, ylabel, bins, archivo):
+      Histograma de valores numéricos.
+
+    bar_chart(labels, values, titulo, xlabel, ylabel, archivo):
+      Gráfico de barras para comparar categorías.
+
+    scatter(x_vals, y_vals, titulo, xlabel, ylabel, color, archivo):
+      Diagrama de dispersión entre dos variables numéricas.
+
+    line_chart(x_vals, y_vals, titulo, xlabel, ylabel, archivo):
+      Gráfico de línea para series de tiempo o curvas.
+
+  EVIDENCIA EN TREZ (tests/features/test_xlsx.trez):
+
+    Plotdoz.bar_chart(etiquetas_edu, conteos_edu,
+        "Distribucion por Nivel Educativo", "Nivel", "Cantidad",
+        "../tests/grafica_nivel_edu.png");
+
+    Plotdoz.histogram(edades,
+        "Distribucion de Edades", "Edad (anos)", "Frecuencia",
+        30, "../tests/grafica_edades.png");
+
+    Plotdoz.scatter(edades, ingresos,
+        "Edad vs Ingreso Mensual", "Edad", "Ingreso mensual",
+        "steelblue", "../tests/grafica_scatter.png");
+
+  NAMESPACE REGISTRADO EN VISITOR:
+
+    'Plotdoz': {
+        'learning_curve': plotdoz_learning_curve,
+        'histogram':      plotdoz_histogram,
+        'bar_chart':      plotdoz_bar,
+        'scatter':        plotdoz_scatter,
+        'line_chart':     plotdoz_line,
+    }
+
+
+================================================================================
           VEREDICTO FINAL: ✅ TREZ CUMPLE TODOS LOS REQUISITOS
 ================================================================================
 
-  TREZ cumple satisfactoriamente con TODOS los requisitos de la Entrega 1
-  y de la Entrega 2:
+  TREZ cumple satisfactoriamente con TODOS los requisitos de la Entrega 1,
+  Entrega 2 y Entrega 3:
 
   ENTREGA 1:
     ✅ Patrón Visitor implementado correctamente
@@ -497,8 +588,20 @@ requisito para ambas entregas.
     ✅ Queue y Stack nativos (structsdoz)
     ✅ Inspectdoz (spy, shape)
 
+  ENTREGA 3:
+    ✅ Datadoz.read_csv() — lectura de CSV con inferencia de tipos
+    ✅ Datadoz.read_xlsx() — lectura de Excel real (data.xlsx, 10280 filas)
+    ✅ Datadoz.columna/fila/num_filas/num_columnas/columnas
+    ✅ Plotdoz.learning_curve — curva de entrenamiento
+    ✅ Plotdoz.histogram — distribución de variables
+    ✅ Plotdoz.bar_chart — comparación de categorías
+    ✅ Plotdoz.scatter — relación entre variables
+    ✅ Plotdoz.line_chart — series de tiempo
+    ✅ test_xlsx.trez — test integrador con dataset real y 3 gráficas
+
   El proyecto demuestra madurez técnica: cero dependencias para cómputo,
-  arquitectura limpia Lexer→Parser→AST→Visitor, y una stdlib modular
-  lista para escalar hacia Deep Learning completo en Entregas 3 y 4.
+  arquitectura limpia Lexer→Parser→AST→Visitor, stdlib modular con
+  16 tests pasando (16/16), y capacidad real de procesar y visualizar
+  datasets externos desde el lenguaje TREZ.
 
 ================================================================================

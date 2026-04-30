@@ -31,7 +31,7 @@ def run_trez(trez_file):
         cwd=SRC_DIR,
         capture_output=True,
         text=True,
-        timeout=15,
+        timeout=60,
     )
     return result.stdout.rstrip('\n'), result.stderr.rstrip('\n'), result.returncode
 

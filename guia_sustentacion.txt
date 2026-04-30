@@ -266,6 +266,13 @@ NAMESPACES:
   Optimdoz.sgd(params, grads, 0.01)
   NNdoz.linear_init(4, 8)
   Datadoz.from_lists(X, Y)
+  Datadoz.read_csv("datos.csv")
+  Datadoz.read_xlsx("datos.xlsx")
+  Datadoz.columna(datos, "edad")
+  Plotdoz.learning_curve(losses_train, losses_val, "Loss", "Epoch", "Loss", "lc.png")
+  Plotdoz.histogram(valores, "Hist", "X", "Freq", 20, "hist.png")
+  Plotdoz.bar_chart(labels, counts, "Titulo", "X", "Y", "bar.png")
+  Plotdoz.scatter(xs, ys, "Scatter", "X", "Y", "steelblue", "sc.png")
   Inspectdoz.spy(tensor)
 
 OPERADORES LÓGICOS:
@@ -465,9 +472,32 @@ cómputo. Solo usa `random` de Python para inicialización de pesos.
     Divide aleatoriamente en entrenamiento y prueba.
     Retorna [X_train, Y_train, X_test, Y_test].
 
+  read_csv(ruta, delimitador):
+    Lee un archivo CSV y retorna lista de dicts {columna: valor}.
+    La primera fila es la cabecera. Infiere tipos (int, float, str).
+    Delimitador por defecto: ','.
+
+  read_xlsx(ruta):
+    Lee un archivo Excel (.xlsx) y retorna lista de dicts {columna: valor}.
+    La primera fila es la cabecera. Requiere openpyxl.
+
+  columna(datos, nombre):
+    Extrae una columna del dataset como lista de valores.
+
+  fila(datos, idx):
+    Retorna la fila en el índice dado como dict.
+
+  num_filas(datos):    Cantidad de registros (sin cabecera).
+  num_columnas(datos): Cantidad de columnas.
+  columnas(datos):     Lista de nombres de columnas.
+
   En TREZ:  Datadoz.from_lists(X, Y)
             Datadoz.make_loader(ds, 32, true)
             Datadoz.get_batches(loader)
+            Datadoz.read_csv("datos.csv")
+            Datadoz.read_xlsx("datos.xlsx")
+            Datadoz.columna(datos, "edad")
+            Datadoz.num_filas(datos)
 
 ──────────────────────────────────────────────────────────────────────────────
   STRUCTSDOZ  (src/lib/structsdoz/structsdoz.py)
@@ -499,6 +529,39 @@ cómputo. Solo usa `random` de Python para inicialización de pesos.
 
   En TREZ:  IOdoz.leer("datos.csv"),  IOdoz.escribir("out.txt", "hola")
             O globales: leer("datos.csv"), escribir("out.txt", "hola")
+
+  NOTA: para leer CSV/XLSX estructurados como tabla de datos usar
+  Datadoz.read_csv() y Datadoz.read_xlsx() que retornan listas de dicts.
+
+──────────────────────────────────────────────────────────────────────────────
+  PLOTDOZ  (src/lib/plotdoz/plotdoz.py)
+──────────────────────────────────────────────────────────────────────────────
+
+  Módulo de visualización. Guarda gráficas como archivos PNG.
+  Requiere matplotlib (externo, para visualización — no para cómputo).
+
+  learning_curve(train_losses, val_losses, titulo, xlabel, ylabel, archivo):
+    Curva de aprendizaje: loss de entrenamiento y validación por época.
+    Es la gráfica principal del ciclo de entrenamiento de una red neuronal.
+    val_losses es opcional (puede omitirse o pasar lista vacía).
+
+  histogram(valores, titulo, xlabel, ylabel, bins, archivo):
+    Histograma de una lista de valores numéricos.
+    Útil para analizar la distribución de una variable del dataset.
+
+  bar_chart(labels, values, titulo, xlabel, ylabel, archivo):
+    Gráfico de barras. Útil para comparar conteos o frecuencias categóricas.
+
+  scatter(x_vals, y_vals, titulo, xlabel, ylabel, color, archivo):
+    Diagrama de dispersión. Muestra la relación entre dos variables numéricas.
+
+  line_chart(x_vals, y_vals, titulo, xlabel, ylabel, archivo):
+    Gráfico de línea. Útil para series de tiempo o métricas por época.
+
+  En TREZ:  Plotdoz.learning_curve(losses_train, losses_val, "Loss", "Epoch", "Loss", "lc.png")
+            Plotdoz.histogram(edades, "Edades", "Edad", "Frecuencia", 30, "hist.png")
+            Plotdoz.bar_chart(["A","B"], [10, 20], "Conteo", "Cat", "N", "bar.png")
+            Plotdoz.scatter(edades, ingresos, "Edad vs Ingreso", "Edad", "Ingreso", "steelblue", "sc.png")
 
 ──────────────────────────────────────────────────────────────────────────────
   INSPECTDOZ  (src/lib/inspectdoz/inspectdoz.py)
@@ -750,7 +813,9 @@ TREZ/
 │       ├── lossesdoz/           mse, mse_grad, cross_entropy, cross_entropy_grad
 │       ├── optimdoz/            sgd, adam, zeros_like
 │       ├── nndoz/               linear_init/forward/backward, relu, softmax
-│       ├── datadoz/             from_lists, make_loader, get_batches, split
+│       ├── datadoz/             from_lists, make_loader, get_batches, split,
+│       │                        read_csv, read_xlsx, columna, fila, num_filas
+│       ├── plotdoz/             learning_curve, histogram, bar_chart, scatter, line_chart
 │       ├── iodoz/               leer, escribir
 │       ├── inspectdoz/          spy, shape
 │       └── structsdoz/          TrezQueue, TrezStack
@@ -771,7 +836,8 @@ TREZ/
     │   ├── test_optimdoz.trez   SGD y Adam
     │   ├── test_metricsdoz.trez MSE, CrossEntropy, gradientes
     │   ├── test_nndoz.trez      Capas lineales, ReLU, Softmax
-    │   └── test_datadoz.trez    Datasets, batching, train/test split
+    │   ├── test_datadoz.trez    Datasets, batching, train/test split
+    │   └── test_xlsx.trez       Lectura de Excel real (data.xlsx) + 3 gráficas con Plotdoz
     ├── runtime/                 Tests de errores en ejecución
     └── syntax/                  Tests de errores de sintaxis
 

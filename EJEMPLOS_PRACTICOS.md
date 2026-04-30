@@ -473,6 +473,77 @@ def visitAddSubExpr(self, ctx):
 
 ---
 
+## ESCENARIO 9: Profesor pregunta "¿Cómo procesa TREZ un archivo Excel?"
+
+### El flujo completo:
+
+```trez
+// 1. Cargar el Excel como lista de dicts
+let datos = Datadoz.read_xlsx("../tests/data.xlsx");
+
+// 2. Explorar estructura
+mostrar(Datadoz.num_filas(datos));         // 10280
+mostrar(Datadoz.columnas(datos));          // [id, edad, nivel_edu, ...]
+
+// 3. Extraer columnas
+let edades   = Datadoz.columna(datos, "edad");
+let ingresos = Datadoz.columna(datos, "ingreso_mensual");
+
+// 4. Calcular estadísticas en TREZ puro
+let suma = 0;
+for e in edades { let suma = suma + e; }
+let media = suma / len(edades);
+mostrar(media);   // 39.73
+
+// 5. Graficar
+Plotdoz.histogram(edades, "Distribución de Edades", "Edad", "Frecuencia", 30, "edades.png");
+Plotdoz.scatter(edades, ingresos, "Edad vs Ingreso", "Edad", "Ingreso", "steelblue", "scatter.png");
+```
+
+### ¿Dónde está cada pieza?
+
+| Paso | Archivo | Qué hace |
+|------|---------|----------|
+| `Datadoz.read_xlsx()` | `lib/datadoz/datadoz.py` | Abre el xlsx con openpyxl, retorna lista de dicts |
+| `Datadoz.columna()` | `lib/datadoz/datadoz.py` | Extrae una columna como lista de valores |
+| `Plotdoz.histogram()` | `lib/plotdoz/plotdoz.py` | Genera PNG con matplotlib (modo Agg, sin GUI) |
+| Dispatch `Datadoz.*` | `visitor.py` `_NAMESPACES['Datadoz']` | Mapea nombre→función Python |
+| Dispatch `Plotdoz.*` | `visitor.py` `_NAMESPACES['Plotdoz']` | Mapea nombre→función Python |
+
+### ¿Por qué Datadoz y no IOdoz para leer el Excel?
+
+IOdoz lee texto plano (strings). Datadoz maneja datos **estructurados**: infiere tipos, maneja cabeceras, retorna dicts. Es separación de responsabilidades: I/O genérico vs. datos tabulares para ML.
+
+---
+
+## ESCENARIO 10: Profesor pregunta "¿Cómo agregarías una gráfica de curva de pérdida?"
+
+### Ya está implementada. Código de ejemplo:
+
+```trez
+// Simular losses de entrenamiento
+let losses_train = [2.3, 1.8, 1.4, 1.1, 0.9, 0.7, 0.6, 0.5];
+let losses_val   = [2.5, 2.0, 1.6, 1.3, 1.1, 0.9, 0.85, 0.82];
+
+Plotdoz.learning_curve(
+    losses_train,
+    losses_val,
+    "Learning Curve - Red Neuronal",
+    "Epoch",
+    "Loss",
+    "learning_curve.png"
+);
+```
+
+### ¿Dónde está implementada?
+
+**Archivo:** `src/lib/plotdoz/plotdoz.py` función `learning_curve()`.
+
+Dibuja la curva de train en azul y val en rojo discontinuo.
+Si no hay `val_losses`, solo dibuja train. La imagen se guarda en el path indicado.
+
+---
+
 ## TABLA RÁPIDA: ¿Dónde está cada cosa?
 
 | Lo que pregunta el profesor | Archivo | Línea | Método |
@@ -488,8 +559,12 @@ def visitAddSubExpr(self, ctx):
 | "¿Dónde se evalúan arrays?" | visitor.py | 116-119 | visitArray |
 | "¿Dónde se manejan condicionales?" | visitor.py | 97-103 | visitIf_stmt |
 | "¿Dónde están los bucles?" | visitor.py | 105-109 | visitWhile_stmt |
-| "¿Dónde se calcula sin(x)?" | visitor.py | 72 + math/core.py | visitFuncCallExpr + sin |
+| "¿Dónde se calcula sin(x)?" | visitor.py + mathdoz/core_mathdoz.py | - | visitFuncCallExpr |
 | "¿Dónde se controla precisión?" | visitor.py | 29 | visitExpr_stmt |
+| "¿Cómo se lee un Excel?" | lib/datadoz/datadoz.py | - | read_xlsx() |
+| "¿Cómo se lee un CSV?" | lib/datadoz/datadoz.py | - | read_csv() |
+| "¿Cómo se grafíca?" | lib/plotdoz/plotdoz.py | - | bar_chart/histogram/scatter/learning_curve |
+| "¿Dónde están los namespaces?" | visitor.py `_NAMESPACES` | ~50 | dict de lambdas |
 
 ---
 
